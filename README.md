@@ -26,6 +26,12 @@ Il flusso è:
 
 [Guida Firefox](docs/FIREFOX.md) · [Reti LAN/Internet e HTTPS](docs/NETWORKING.md)
 
+**Installazione da terminale:** [Claude Code](docs/CLAUDE_CODE.md) · [Codex CLI](docs/CODEX.md)
+
+**Download Firefox:** [XPI di sviluppo non firmato](https://github.com/tedin7/android-browser-bridge/releases/download/v0.1.0-dev/android-browser-bridge.xpi).
+La scheda Mozilla Add-ons non è ancora pubblicata: la guida Firefox contiene
+il percorso per la futura installazione dallo store e la procedura del maintainer.
+
 ## Installazione Linux
 
 Richiede Python 3.10+; nessuna libreria Python esterna, nessun root e nessun

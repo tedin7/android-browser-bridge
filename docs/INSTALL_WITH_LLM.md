@@ -9,6 +9,7 @@ Installa Android Browser Bridge da
 https://github.com/tedin7/android-browser-bridge
 
 Leggi README.md, AGENTS.md e docs/NETWORKING.md prima di agire.
+Per Codex leggi docs/CODEX.md; per Claude Code leggi docs/CLAUDE_CODE.md.
 Esegui tu discovery, clone, build, test e configurazione MCP sul mio Linux.
 Non usare ADB, VPN obbligatorie, Cloudflare, relay o tunnel esterni.
 Non sovrascrivere altri server MCP, configurazioni, certificati o firewall.
@@ -36,6 +37,8 @@ client è identificabile; altrimenti forniscimi il blocco pronto da copiare.
 Spiegami i passaggi manuali Firefox da docs/FIREFOX.md. L'XPI attuale è NON
 firmato: non dichiarare che si installa normalmente in Firefox stabile.
 L'installazione e il consenso nell'app Android devono essere fatti da me.
+Dammi l'URL diretto di download XPI dalla release pubblica. Non inventare
+un URL Mozilla Add-ons: la scheda del progetto non è ancora pubblicata.
 
 Dopo che avrò installato e abilitato l'estensione, chiama browser_pair con
 un nome per il mio dispositivo. Dammi la stringa BB1 da incollare entro

@@ -6,6 +6,26 @@ Il repository contiene il sorgente e un pacchetto **non firmato**, per test.
 Non c'è ancora una pubblicazione su Mozilla Add-ons. Non è stato verificato
 su un vero Firefox Android: la prova finale richiede un dispositivo.
 
+**Download diretto dell'estensione di sviluppo:**
+https://github.com/tedin7/android-browser-bridge/releases/download/v0.1.0-dev/android-browser-bridge.xpi
+
+**Release con pacchetto MCP e sorgenti:**
+https://github.com/tedin7/android-browser-bridge/releases/tag/v0.1.0-dev
+
+## Installazione facile dallo store Mozilla Add-ons
+
+**Scheda di questa estensione nello store: non ancora pubblicata.** Non c'è
+quindi un URL AMO installabile da fornire per Browser Bridge in questa release.
+Il download GitHub qui sopra è una build di sviluppo, non la scheda dello store.
+
+Quando sarà pubblicata e dichiarata compatibile con Android, l'utente dovrà
+aprire il suo link AMO in Firefox Android, premere Aggiungi a Firefox e accettare
+i permessi. Poi aprirà Browser Bridge e incollerà il codice BB1 generato dal suo
+MCP. Non dovrà usare Nightly o modificare le verifiche delle firme.
+
+Il maintainer deve pubblicare l'URL effettivo della scheda AMO qui e nel README
+solo dopo averlo verificato; non costruire un URL presunto a partire dal nome.
+
 Per utenti finali, la strada semplice sarà installazione da Mozilla Add-ons
 o XPI firmato. La firma richiede l'account Mozilla del publisher; non è inclusa
 nel processo di build.
@@ -53,6 +73,14 @@ Creare un pacchetto con `python3 build.py`, poi sottoporlo a Mozilla AMO come
 listed o unlisted. Distribuire l'XPI firmato risultante, non rinominare l'XPI
 non firmato come se fosse stato approvato. Non pubblicare token o credenziali.
 
+Per la pubblicazione dallo store: accedi a
+https://addons.mozilla.org/developers/addon/submit/distribution,
+scegli la distribuzione su addons.mozilla.org, carica il pacchetto e completa
+scheda, compatibilità Android, dichiarazioni dei dati e privacy policy. Attendi
+firma/review secondo il flusso Mozilla; solo allora aggiungi il link pubblico
+della scheda alle istruzioni. Il progetto non ha eseguito questa pubblicazione.
+
 Riferimenti Mozilla:
 - https://extensionworkshop.com/documentation/publish/install-self-distributed/
 - https://extensionworkshop.com/documentation/develop/choosing-a-firefox-version-for-extension-development/
+- https://extensionworkshop.com/documentation/publish/submitting-an-add-on/
