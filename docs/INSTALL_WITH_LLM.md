@@ -23,7 +23,7 @@ Determina l'indirizzo Linux raggiungibile dal mio Android:
 Se non puoi sapere in quale rete è Android, chiedimelo.
 
 Clona il repository in una nuova directory, poi esegui:
-python3 -m unittest -v test_bridge.py
+python3 -m unittest -v test_bridge.py test_navigation.py
 python3 build.py
 python3 smoke_mcp.py
 Se Node è disponibile, esegui anche node test_extension.js.
@@ -36,7 +36,11 @@ client è identificabile; altrimenti forniscimi il blocco pronto da copiare.
 
 Spiegami i passaggi manuali Firefox da docs/FIREFOX.md. L'XPI attuale è NON
 firmato: non dichiarare che si installa normalmente in Firefox stabile.
-L'installazione e il consenso nell'app Android devono essere fatti da me.
+Esegui anche i passaggi Android se disponi di strumenti autorizzati per
+controllarne l’interfaccia. Se l’installer o il consenso non sono controllabili,
+spiega il limite concreto e indicami soltanto i passaggi manuali indispensabili.
+Non presentare foreground come uno strumento per controllare l’installer.
+Se l’estensione 0.2.1 è già installata, aggiorna il MCP Linux senza reinstallarla.
 Dammi l'URL diretto di download XPI dalla release pubblica. Non inventare
 un URL Mozilla Add-ons: la scheda del progetto non è ancora pubblicata.
 

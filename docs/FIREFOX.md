@@ -97,6 +97,7 @@ sono conservate da Firefox. Accetta le nuove autorizzazioni soltanto se vuoi
 abilitare iframe e screenshot; apri Browser Bridge e verifica il controllo attivo.
 Se una scheda aperta prima dell’aggiornamento non risponde, ricaricala.
 
-La versione 0.2.0 aggiunge più pagine in parallelo, ricerca per nome dei controlli,
-screenshot e altre interazioni. La validazione completa su Android è in corso;
-vedi [VALIDATION.md](VALIDATION.md) per distinguere le prove desktop da quelle Android.
+L’estensione 0.2.1 con MCP 0.2.2 ha superato sul tablet Android tutte le 30
+operazioni, incluse pagine in parallelo, ricerca dei controlli e screenshot.
+L’aggiornamento MCP 0.2.2 avviene sul Linux e non richiede reinstallare l’estensione
+0.2.1. Vedi [VALIDATION.md](VALIDATION.md) per risultati e limiti verificati.
