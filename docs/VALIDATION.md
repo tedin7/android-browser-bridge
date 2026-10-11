@@ -36,6 +36,25 @@ page A's 1.2-second element wait times out. Mocked scheduler/transport tests als
 verified same-page FIFO, global barriers, maximum four executing commands,
 disabling queued work, and immediate result delivery during a waiting long poll.
 
+## Version 0.2.0 measured desktop latency
+
+Measured 12 sequential samples per operation using a persistent packaged MCP,
+real Firefox Linux in a temporary isolated profile, authenticated loopback HTTP
+and the generated interaction fixture. Aggregate results only were saved.
+
+| Operation | Median ms | p95 ms |
+| --- | ---: | ---: |
+| tabs | 30.62 | 167.37 |
+| read | 57.37 | 323.51 |
+| locate | 29.00 | 106.97 |
+| click | 24.22 | 50.14 |
+| fill | 21.81 | 108.86 |
+| batch (fill + inspect) | 19.12 | 29.92 |
+
+These measurements include tool and transport latency and use a small fixture.
+They are not Android measurements or a controlled cross-browser speedup claim.
+Cold execution and host scheduling affect p95; larger pages need separate profiling.
+
 ## Actual Android verification of version 0.1.2
 
 Firefox Android Nightly on the OnePlus Pad 3 was manually paired and opted in.
