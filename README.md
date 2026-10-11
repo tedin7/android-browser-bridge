@@ -6,8 +6,9 @@ Ogni persona esegue il proprio MCP sul proprio Linux e abbina il proprio browser
 Nessun server centrale, account nel progetto, Cloudflare, tunnel o VPN obbligatoria.
 Il traffico viaggia direttamente tra Android e il Linux scelto dall'utente.
 
-**Prototipo sperimentale:** broker e MCP sono testati; il controllo su un vero
-Firefox Android resta da validare. L'estensione è non firmata e richiede un
+**Prototipo sperimentale:** broker, MCP ed estensione sono stati testati anche
+con Firefox Linux reale; il controllo su Firefox Android resta da validare.
+L'estensione è non firmata e richiede un
 ambiente Firefox di sviluppo. Per l'installazione normale in Firefox stabile
 serve ancora la firma Mozilla.
 
@@ -24,11 +25,11 @@ Il flusso è:
 4. Incolla la stringa `BB1.…` nell'estensione, abilita il controllo e salva.
 5. Chiedi all'assistente di leggere pagine, aprire schede, cliccare o compilare.
 
-[Guida Firefox](docs/FIREFOX.md) · [Reti LAN/Internet e HTTPS](docs/NETWORKING.md)
+[Guida Firefox](docs/FIREFOX.md) · [Reti LAN/Internet e HTTPS](docs/NETWORKING.md) · [Privacy](PRIVACY.md)
 
 **Installazione da terminale:** [Claude Code](docs/CLAUDE_CODE.md) · [Codex CLI](docs/CODEX.md)
 
-**Download Firefox:** [XPI di sviluppo non firmato](https://github.com/tedin7/android-browser-bridge/releases/download/v0.1.0-dev/android-browser-bridge.xpi).
+**Download Firefox:** [XPI di sviluppo non firmato](https://github.com/tedin7/android-browser-bridge/releases/download/v0.1.2-dev/android-browser-bridge.xpi).
 La scheda Mozilla Add-ons non è ancora pubblicata: la guida Firefox contiene
 il percorso per la futura installazione dallo store e la procedura del maintainer.
 
@@ -138,12 +139,17 @@ python3 build.py
 python3 smoke_mcp.py
 python3 smoke_mcp.py --direct
 python3 smoke_mcp.py --tls
+# Test browser reale in profilo isolato (Firefox desktop e npm richiesti):
+python3 test_firefox.py
 ```
 
 La build genera XPI, pacchetto MCP singolo file e archivio sorgente. I test
 esercitano autenticazione, isolamento, pairing monouso, scadenza, revoca,
 persistenza e il percorso HTTP reale. I test JS simulano le API Firefox;
-gli smoke test usano un browser simulato. Non sostituiscono la prova su Android.
+gli smoke test usano un browser simulato. `test_firefox.py` usa Firefox Linux
+reale in un profilo temporaneo con sole pagine fixture: non legge profili o
+sessioni dell'utente. Nessuno di questi test sostituisce la prova su Android.
+[Risultati verificati](docs/VALIDATION.md) · [Preparazione firma Mozilla](docs/AMO_SUBMISSION.md)
 
 Per un test nella stessa macchina: `python3 android-browser-mcp.pyz --local`.
 Licenza MIT. Il progetto è pubblicato come prototipo, non come release pronta

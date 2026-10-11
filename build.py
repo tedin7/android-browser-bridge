@@ -26,7 +26,7 @@ with tempfile.TemporaryDirectory(prefix="browser-bridge-") as directory:
     zipapp.create_archive(staging, root / "android-browser-mcp.pyz", interpreter="/usr/bin/env python3", compressed=True)
 print(root / "android-browser-mcp.pyz")
 with ZipFile(root / "android-browser-bridge-bundle.zip", "w", ZIP_DEFLATED) as archive:
-    names = ["AGENTS.md", "README.md", "LICENSE", "RELEASE_NOTES.md", "bridge.py", "mcp_server.py", "launcher.py", "install.py", "build.py", "test_bridge.py", "test_extension.js", "smoke_mcp.py", "install.html", "android-browser-bridge.xpi", "android-browser-mcp.pyz"]
+    names = ["AGENTS.md", "README.md", "LICENSE", "PRIVACY.md", "RELEASE_NOTES.md", "bridge.py", "mcp_server.py", "launcher.py", "install.py", "build.py", "test_bridge.py", "test_extension.js", "test_firefox.py", "smoke_mcp.py", "install.html", "android-browser-bridge.xpi", "android-browser-mcp.pyz"]
     for name in names:
         archive.write(root / name, name)
     for directory in ("extension", "docs"):

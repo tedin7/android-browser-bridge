@@ -1,14 +1,20 @@
 {
   "manifest_version": 2,
   "name": "Android Browser Bridge",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Control your own browser from your Linux terminal, without ADB.",
   "permissions": ["storage", "tabs", "http://*/*", "https://*/*"],
   "background": {"scripts": ["connection.js", "background.js"]},
   "options_ui": {"page": "options.html", "open_in_tab": true},
   "browser_action": {"default_title": "Browser Bridge"},
   "browser_specific_settings": {
-    "gecko": {"id": "android-browser-bridge@local.invalid", "strict_min_version": "115.0"},
-    "gecko_android": {"strict_min_version": "115.0"}
+    "gecko": {
+      "id": "android-browser-bridge@local.invalid",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": ["websiteContent", "browsingActivity", "websiteActivity", "authenticationInfo"]
+      }
+    },
+    "gecko_android": {"strict_min_version": "142.0"}
   }
 }
