@@ -8,6 +8,9 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from bridge import OPERATIONS, ROOT, api, run_command
 from mcp_guidance import failure, local_android_foreground
+from browser_navigation import execute_navigation, NAVIGATION_OPERATIONS
+from command_order import CommandOrder
+COMMAND_ORDER = CommandOrder()
 LOCAL_BROKER = None
 
 
@@ -51,11 +54,48 @@ TOOLS = [
 ]
 
 
+def execute_browser_command(url, token, device, operation, arguments):
+    with COMMAND_ORDER.enter(device, operation, arguments):
+        def dispatch(op, values):
+            return run_command(url, token, device, op, values, request=broker_api)
+        def execute(op, values):
+            steps=values.get('steps', [])
+            if op=='batch' and isinstance(steps,list) and any(step.get('op') in NAVIGATION_OPERATIONS and step.get('args',{}).get('waitUntil')=='complete' for step in steps):
+                if not 1 <= len(steps) <= 25 or any(step.get('op')=='batch' for step in steps):
+                    raise ValueError('batch requires 1–25 non-nested steps')
+                results=[]
+                for index,step in enumerate(steps):
+                    inherited={} if values.get('tabId') is None else {'tabId':values['tabId']}
+                    try:
+                        result=execute(step['op'],{**inherited,**step.get('args',{})})
+                        results.append({'op':step['op'],'result':result})
+                    except Exception as error:
+                        return {'results':results,'completed':len(results),'error':{'index':index,**failure(error,device,step.get('op'))}}
+                return {'results':results,'completed':len(results)}
+            return execute_navigation(dispatch,op,values)
+        native=local_android_foreground(device,url) if operation=='foreground' else None
+        try:
+            result=execute(operation,arguments)
+        except RuntimeError as error:
+            if not str(error).startswith(('VIEWPORT_UNAVAILABLE:', 'TAB_NOT_VISIBLE:')): raise
+            recovered=local_android_foreground(device,url)
+            if not recovered.get('launchRequested'): raise
+            dispatch('foreground',{'tabId':arguments.get('tabId')})
+            result=execute(operation,arguments)
+        if native is not None: result={**result,'localAndroid':native}
+        if operation=='batch' and isinstance(result,dict) and result.get('error'):
+            detail=result['error'];index=detail.get('index',0)
+            if 'nextSteps' not in detail:
+                step=arguments.get('steps',[])[index]
+                result['error']={**detail,**failure(RuntimeError(detail.get('code','ACTION_ERROR')+': '+detail.get('message','')),device,step.get('op'))}
+        return result
+
+
 def handle(message):
     method = message.get("method")
     if method == "initialize":
         return {"protocolVersion": message.get("params", {}).get("protocolVersion", "2024-11-05"),
-                "capabilities": {"tools": {}}, "serverInfo": {"name": "android-browser-bridge", "version": "0.2.1"}}
+                "capabilities": {"tools": {}}, "serverInfo": {"name": "android-browser-bridge", "version": "0.2.2"}}
     if method == "ping":
         return {}
     if method == "tools/list":
@@ -83,24 +123,7 @@ def handle(message):
             elif params["name"] == "browser_revoke":
                 result = broker_api(url, token, "/api/revoke", {"device": args["device"]})
             elif params["name"] == "browser_command":
-                native=None
-                if args['op']=='foreground': native=local_android_foreground(args['device'],url)
-                try:
-                    result = run_command(url, token, args["device"], args["op"], args.get("args", {}), request=broker_api)
-                except RuntimeError as error:
-                    # These codes are emitted before the page action, so recovery
-                    # cannot duplicate a click or form submission.
-                    if str(error).startswith(('VIEWPORT_UNAVAILABLE:', 'TAB_NOT_VISIBLE:')):
-                        recovered=local_android_foreground(args['device'],url)
-                        if not recovered.get('launchRequested'): raise
-                        run_command(url,token,args['device'],'foreground',{'tabId':args.get('args',{}).get('tabId')},request=broker_api)
-                        result=run_command(url,token,args['device'],args['op'],args.get('args',{}),request=broker_api)
-                    else: raise
-                if native is not None: result={**result,'localAndroid':native}
-                if args['op']=='batch' and isinstance(result,dict) and result.get('error'):
-                    detail=result['error'];index=detail.get('index',0)
-                    step=args.get('args',{}).get('steps',[])[index]
-                    result['error']={**detail,**failure(RuntimeError(detail.get('code','ACTION_ERROR')+': '+detail.get('message','')),args['device'],step.get('op'))}
+                result = execute_browser_command(url, token, args['device'], args['op'], args.get('args', {}))
             else:
                 raise ValueError("Unknown tool")
             if params['name']=='browser_command' and args.get('op')=='screenshot' and isinstance(result,dict) and result.get('data'):

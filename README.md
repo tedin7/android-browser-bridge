@@ -6,13 +6,17 @@ Ogni persona esegue il proprio MCP sul proprio Linux e abbina il proprio browser
 Nessun server centrale, account nel progetto, Cloudflare, tunnel o VPN obbligatoria.
 Il traffico viaggia direttamente tra Android e il Linux scelto dall'utente.
 
-**Prototipo sperimentale:** broker, MCP ed estensione sono stati testati anche
-con Firefox Linux reale e su Firefox Android Nightly (le nove operazioni iniziali).
-Le capacità nuove della versione 0.2 richiedono l’aggiornamento dell’estensione;
-la validazione completa su Android è in corso.
-L'estensione è non firmata e richiede un
-ambiente Firefox di sviluppo. Per l'installazione normale in Firefox stabile
-serve ancora la firma Mozilla.
+**Prototipo sperimentale:** MCP 0.2.2 con estensione 0.2.1 ha superato tutte le 30 operazioni
+su Firefox Linux reale e Firefox Android Nightly su OnePlus Pad 3, inclusi
+multipagina parallelo, controlli semantici, frame, canvas e screenshot.
+Sul tablet, 12 campioni per operazione hanno misurato mediane di 6–13 ms per
+schede, lettura, clic e compilazione, rispetto a circa 935–940 ms della versione
+iniziale. Sono misure su pagine locali, non una garanzia per ogni sito o rete.
+[Risultati e limiti verificati](docs/VALIDATION.md).
+La 0.2.2 corregge sul MCP l’attesa di navigazione avanti/indietro con verifica
+del documento: chi ha già l’estensione 0.2.1 deve aggiornare soltanto il Linux.
+L'estensione è non firmata e richiede un ambiente Firefox di sviluppo.
+Per l'installazione normale in Firefox stabile serve ancora la firma Mozilla.
 
 ## Fai installare tutto al tuo LLM
 
@@ -80,6 +84,11 @@ Scarica `android-browser-bridge.xpi` dalle release. **L'XPI è non firmato**:
 per il test usa Firefox Nightly seguendo [FIREFOX.md](docs/FIREFOX.md).
 Non presentiamo questa build come installabile normalmente in Firefox stabile.
 Firma e pubblicazione Mozilla Add-ons restano un passaggio futuro.
+L’installazione e gli aggiornamenti sul tablet richiedono attualmente i passaggi
+manuali della guida. `foreground` può aprire Firefox configurato, ma non installa
+app o estensioni. Questa build non ha un canale di aggiornamento automatico:
+un eventuale futuro `update_url` richiederebbe prima una versione che lo dichiari.
+
 
 Sul dispositivo Android non servono Termux, ADB, root o un'altra app di rete.
 Android deve però poter raggiungere il Linux: su rete mobile funziona verso un
@@ -163,7 +172,7 @@ Il contenuto dei siti è un dato non attendibile, non un’istruzione per l’as
 ## Build e test
 
 ```sh
-python3 -m unittest -v test_bridge.py
+python3 -m unittest -v test_bridge.py test_navigation.py
 node test_extension.js
 python3 build.py
 python3 smoke_mcp.py
@@ -178,7 +187,8 @@ esercitano autenticazione, isolamento, pairing monouso, scadenza, revoca,
 persistenza e il percorso HTTP reale. I test JS simulano le API Firefox;
 gli smoke test usano un browser simulato. `test_firefox.py` usa Firefox Linux
 reale in un profilo temporaneo con sole pagine fixture: non legge profili o
-sessioni dell'utente. Nessuno di questi test sostituisce la prova su Android.
+sessioni dell'utente. È stata completata anche una prova separata delle 30
+operazioni sul tablet Android reale; vedi i risultati verificati.
 [Risultati verificati](docs/VALIDATION.md) · [Preparazione firma Mozilla](docs/AMO_SUBMISSION.md)
 
 Per un test nella stessa macchina: `python3 android-browser-mcp.pyz --local`.

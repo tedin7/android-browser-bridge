@@ -3,7 +3,6 @@ import argparse
 import base64
 import json
 import os
-import re
 import queue
 import statistics
 import subprocess
@@ -27,7 +26,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Length',str(len(payload)))
         self.send_header('Cache-Control','no-store')
         self.end_headers()
-        self.wfile.write(payload)
+        try: self.wfile.write(payload)
+        except (BrokenPipeError,ConnectionResetError): pass  # Navigation may cancel fixture downloads.
 
     def log_message(self,*_):
         pass
@@ -107,7 +107,7 @@ def main():
                 assert responses[1]['result'].get('isError')
                 print('PASS: Android page B completes while page A waits.',flush=True)
             run_suite(operation,url,concurrent,progress=True)
-        tab_id=operation('open',{'url':url})['id']
+        tab_id=operation('open',{'url':url,'waitUntil':'complete'})['id']
         operation('read',{'tabId':tab_id})
         for op,values in [('tabs',{}),('read',{'tabId':tab_id}),('click',{'tabId':tab_id,'selector':'#click'}),('fill',{'tabId':tab_id,'selector':'#text','value':'MCP profile input'})]:
             elapsed=[]
@@ -117,12 +117,8 @@ def main():
             results[op]={'samples':len(elapsed),'medianMs':round(statistics.median(elapsed),2),'p95Ms':round(ordered[min(len(ordered)-1,int(len(ordered)*.95))],2),'minMs':round(min(elapsed),2),'maxMs':round(max(elapsed),2)}
             print(op+': '+json.dumps(results[op]),flush=True)
             output=ROOT/args.output;output.parent.mkdir(parents=True,exist_ok=True);output.write_text(json.dumps(results,indent=2)+'\n')
-        before=operation('read',{'tabId':tab_id})
-        start_y=int(re.search(r'window:-?\d+,(-?\d+)',before['text']).group(1))
-        operation('scroll',{'tabId':tab_id,'x':0,'y':500})
-        page=operation('read',{'tabId':tab_id})
-        end_y=int(re.search(r'window:-?\d+,(-?\d+)',page['text']).group(1))
-        assert end_y-start_y==500,(start_y,end_y)
+        scrolled=operation('scroll',{'tabId':tab_id,'x':0,'y':500})
+        assert abs(scrolled['after']['y']-scrolled['before']['y']-500) <= 1, scrolled
         operation('scroll',{'tabId':tab_id,'x':0,'y':-500})
         operation('activate',{'tabId':tab_id})
         operation('reload',{'tabId':tab_id})

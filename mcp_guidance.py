@@ -6,6 +6,8 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 REMEDIES = {
+    'NAVIGATION_PRECONDITION': ['Call foreground for this tab and verify a readable HTTP(S) page before navigating.'],
+    'NAVIGATION_TIMEOUT': ['Inspect read and browser_status before repeating navigation; it was already submitted once.', 'Call foreground if Android suspended the page.'],
     'ANDROID_FOREGROUND_FAILED': ['Open Firefox on Android manually.', 'Check the configured Firefox package and local Termux activity launcher.'],
     'PAGE_RESPONSE_TIMEOUT': ['Call foreground with this tabId and inspect the current page state.', 'The page may be suspended and the action may have occurred; do not blindly repeat a modifying action.'],
     'NOT_EDITABLE': ['Inspect the element type and find an input, textarea or contenteditable control.'],
@@ -31,7 +33,7 @@ REMEDIES = {
     'COMMAND_TIMEOUT': ['Inspect current page state before repeating any action.', 'The action may already have occurred; do not retry blindly.'],
     'NETWORK_ERROR': ['Check broker availability and network.', 'Inspect current page state before repeating an action; delivery may have occurred.'],
 }
-PRECONDITION_CODES = set(REMEDIES) - {'TIMEOUT','COMMAND_TIMEOUT','NETWORK_ERROR','PAGE_RESPONSE_TIMEOUT','CANCELED','INVALID_VALUE'}
+PRECONDITION_CODES = set(REMEDIES) - {'TIMEOUT','COMMAND_TIMEOUT','NETWORK_ERROR','PAGE_RESPONSE_TIMEOUT','CANCELED','INVALID_VALUE','NAVIGATION_TIMEOUT'}
 
 def failure(error, device=None, operation=None):
     message=str(error)
@@ -43,7 +45,7 @@ def failure(error, device=None, operation=None):
     elif isinstance(error,(OSError,ConnectionError)): code='NETWORK_ERROR'
     result={'code':code,'message':message,'operation':operation,'device':device,
         'actionMayHaveOccurred':code not in PRECONDITION_CODES and operation not in {'tabs','read','inspect','locate','capabilities','frames','screenshot','wait'},
-        'retryableAfterRecovery':code in REMEDIES and code not in {'COMMAND_TIMEOUT','NETWORK_ERROR','PAGE_RESPONSE_TIMEOUT'},
+        'retryableAfterRecovery':code in REMEDIES and code not in {'COMMAND_TIMEOUT','NETWORK_ERROR','PAGE_RESPONSE_TIMEOUT','NAVIGATION_TIMEOUT'},
         'nextSteps':REMEDIES.get(code,['Inspect the current page and capabilities before deciding whether to repeat the operation.'])}
     command=re.search(r'Command ID: ([a-zA-Z0-9_-]+)',message)
     if command:result['commandId']=command.group(1)
