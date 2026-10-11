@@ -10,14 +10,14 @@ or transmission of browser data to the maintainer.
 
 Once you enable control, the paired broker can request tab titles and URLs,
 visible page text, links, interactive element metadata and selectors, action
-results and operational errors. Visible page text and URLs may contain personal
+results, requested viewport screenshots, inspected non-password field values and operational errors. Visible page text and URLs may contain personal
 information, messages, health or financial information, and other sensitive
 data. Do not enable control on pages you do not wish to share.
 
 Pairing codes and extension credentials are sent to the chosen broker for
 authentication. The extension does not extract stored passwords, cookies, or
 Firefox profile contents. The `read` operation does not include input field
-values; visible text or URLs may still expose confidential information.
+values. `inspect` can return non-password input values; screenshots show rendered page content, including visible form fields. Password values are omitted from DOM metadata, but text visible on screen may appear in screenshots; visible text or URLs may still expose confidential information.
 
 The recipient is your configured Linux broker. Your MCP client and model
 provider may receive browser content returned by tool calls, process it, and

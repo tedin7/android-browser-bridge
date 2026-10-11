@@ -18,20 +18,19 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-FIXTURE = b'''<!doctype html><html><head><title>Bridge fixture</title></head><body>
-<h1>Browser Bridge real Firefox fixture</h1><p id="result">not clicked</p>
-<button id="go" onclick="document.getElementById('result').textContent='clicked successfully'">Click me</button>
-<input id="name" oninput="document.getElementById('echo').textContent=this.value"><p id="echo"></p>
-</body></html>'''
+from interaction_suite import run_suite
+FIXTURE = (ROOT / 'test_page.html').read_bytes()
+FRAME = b'''<html><title>Fixture frame</title><button id="frame-button" onclick="this.textContent='frame:clicked'">Frame button</button></html>'''
 
 
 class FixtureHandler(BaseHTTPRequestHandler):
     def do_GET(self):
+        payload = FRAME if self.path.startswith("/frame") else FIXTURE
         self.send_response(200)
         self.send_header("Content-Type", "text/html")
-        self.send_header("Content-Length", str(len(FIXTURE)))
+        self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
-        self.wfile.write(FIXTURE)
+        self.wfile.write(payload)
 
     def log_message(self, *_):
         pass
@@ -68,7 +67,11 @@ def main():
                 result = rpc("tools/call", {"name": name, "arguments": args or {}})
                 if result.get("isError"):
                     raise RuntimeError(result["content"][0]["text"])
-                return json.loads(result["content"][0]["text"])
+                images = [item for item in result["content"] if item["type"] == "image"]
+                for image in images:
+                    payload = base64.b64decode(image["data"], validate=True)
+                    assert (image["mimeType"] == "image/png" and payload.startswith(b"\x89PNG\r\n\x1a\n")) or (image["mimeType"] == "image/jpeg" and payload.startswith(b"\xff\xd8"))
+                return json.loads(next(item["text"] for item in result["content"] if item["type"] == "text"))
 
             def operation(op, args=None):
                 return tool("browser_command", {"device": "fixture", "op": op, "args": args or {}})
@@ -109,31 +112,24 @@ def main():
                 else:
                     raise RuntimeError("Real Firefox did not connect within 60 seconds")
                 print("Real Firefox extension paired and polling through MCP.", flush=True)
-                tabs = operation("tabs")
-                tab = next(tab for tab in tabs if tab.get("url") == fixture_url)
-                tab_id = tab["id"]
-                deadline = time.monotonic() + 15
-                while True:
-                    page = operation("read", {"tabId": tab_id})
-                    if "real Firefox fixture" in page.get("text", ""):
-                        break
-                    if time.monotonic() > deadline:
-                        raise RuntimeError("Fixture not loaded")
-                    time.sleep(0.5)
-                operation("click", {"tabId": tab_id, "selector": "#go"})
-                assert "clicked successfully" in operation("read", {"tabId": tab_id})["text"]
-                text = "MCP filled 'quotes' and unicode à correctly"
-                operation("fill", {"tabId": tab_id, "selector": "#name", "value": text})
-                page = operation("read", {"tabId": tab_id})
-                assert text in page["text"]
-                assert any(element["selector"] == "#go" for element in page["elements"])
-                operation("scroll", {"tabId": tab_id, "y": 100})
-                operation("activate", {"tabId": tab_id})
-                new_tab = operation("open", {"url": fixture_url + "?opened=1"})["id"]
-                operation("reload", {"tabId": new_tab})
-                operation("close", {"tabId": new_tab})
+                def concurrent(first, second):
+                    nonlocal request_id
+                    ids=[]
+                    for op, args in [('wait', {'tabId': first, 'selector':'#never-exists', 'timeoutMs':1200}), ('read', {'tabId':second})]:
+                        request_id += 1; ids.append(request_id)
+                        mcp.stdin.write(json.dumps({'jsonrpc':'2.0','id':request_id,'method':'tools/call','params':{'name':'browser_command','arguments':{'device':'fixture','op':op,'args':args}}})+'\n')
+                    mcp.stdin.flush()
+                    responses=[]
+                    for _ in ids:
+                        if not select.select([mcp.stdout],[],[],10)[0]: raise RuntimeError('Parallel MCP request timeout')
+                        responses.append(json.loads(mcp.stdout.readline()))
+                    assert responses[0]['id']==ids[1], 'Page B blocked behind waiting page A'
+                    assert not responses[0]['result'].get('isError')
+                    assert responses[1]['result'].get('isError')
+                    print('PASS: page B completes while page A waits.',flush=True)
+                run_suite(operation, fixture_url, concurrent)
                 tool("browser_revoke", {"device": "fixture"})
-                print("PASS: real Firefox + real extension + packaged stdio MCP: pair, tabs, read, click, fill, scroll, activate, open, reload, close, revoke. Android is NOT tested.", flush=True)
+                print("PASS: real Firefox + real extension + packaged stdio MCP. Android is NOT tested.", flush=True)
             except Exception:
                 logs.seek(0)
                 # Runtime credentials are not printed; web-ext logs contain no

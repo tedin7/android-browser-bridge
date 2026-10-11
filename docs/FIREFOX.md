@@ -7,10 +7,10 @@ Non c'è ancora una pubblicazione su Mozilla Add-ons. Non è stato verificato
 su un vero Firefox Android: la prova finale richiede un dispositivo.
 
 **Download diretto dell'estensione di sviluppo:**
-https://github.com/tedin7/android-browser-bridge/releases/download/v0.1.2-dev/android-browser-bridge.xpi
+https://github.com/tedin7/android-browser-bridge/releases/download/v0.2.0-dev/android-browser-bridge.xpi
 
 **Release con pacchetto MCP e sorgenti:**
-https://github.com/tedin7/android-browser-bridge/releases/tag/v0.1.2-dev
+https://github.com/tedin7/android-browser-bridge/releases/tag/v0.2.0-dev
 
 Versioni minime: Firefox desktop 140, Firefox Android 142. Il manifest ora
 dichiara i tipi di dati trasferiti e la pagina di configurazione spiega il
@@ -88,3 +88,15 @@ Riferimenti Mozilla:
 - https://extensionworkshop.com/documentation/publish/install-self-distributed/
 - https://extensionworkshop.com/documentation/develop/choosing-a-firefox-version-for-extension-development/
 - https://extensionworkshop.com/documentation/publish/submitting-an-add-on/
+
+## Aggiornamento mantenendo il collegamento
+
+Installa il nuovo XPI dallo stesso percorso usato per il primo pacchetto, senza
+rimuovere prima l’estensione. L’ID resta uguale e le impostazioni di abbinamento
+sono conservate da Firefox. Accetta le nuove autorizzazioni soltanto se vuoi
+abilitare iframe e screenshot; apri Browser Bridge e verifica il controllo attivo.
+Se una scheda aperta prima dell’aggiornamento non risponde, ricaricala.
+
+La versione 0.2.0 aggiunge più pagine in parallelo, ricerca per nome dei controlli,
+screenshot e altre interazioni. La validazione completa su Android è in corso;
+vedi [VALIDATION.md](VALIDATION.md) per distinguere le prove desktop da quelle Android.
