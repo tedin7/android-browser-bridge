@@ -6,7 +6,7 @@ Only a temporary test copy opts in automatically, and only fixture content is us
 import base64
 import json
 import os
-import select
+import queue
 import shutil
 import signal
 import subprocess
@@ -47,18 +47,26 @@ def main():
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=logs, text=True)
             runner = None
             request_id = 0
+            responses=queue.Queue()
+            def read_responses():
+                try:
+                    for line in mcp.stdout: responses.put(json.loads(line))
+                except Exception as error: responses.put(error)
+                finally: responses.put(None)
+            threading.Thread(target=read_responses,daemon=True).start()
+            def receive(timeout=45):
+                try: response=responses.get(timeout=timeout)
+                except queue.Empty: raise RuntimeError('MCP response timed out') from None
+                if response is None: raise RuntimeError('MCP exited')
+                if isinstance(response,Exception): raise response
+                return response
 
             def rpc(method, params):
                 nonlocal request_id
                 request_id += 1
                 mcp.stdin.write(json.dumps({"jsonrpc": "2.0", "id": request_id, "method": method, "params": params}) + "\n")
                 mcp.stdin.flush()
-                if not select.select([mcp.stdout], [], [], 45)[0]:
-                    raise RuntimeError("MCP response timed out")
-                line = mcp.stdout.readline()
-                if not line:
-                    raise RuntimeError("MCP exited")
-                response = json.loads(line)
+                response=receive()
                 if "error" in response:
                     raise RuntimeError(str(response["error"]))
                 return response["result"]
@@ -119,15 +127,12 @@ def main():
                         request_id += 1; ids.append(request_id)
                         mcp.stdin.write(json.dumps({'jsonrpc':'2.0','id':request_id,'method':'tools/call','params':{'name':'browser_command','arguments':{'device':'fixture','op':op,'args':args}}})+'\n')
                     mcp.stdin.flush()
-                    responses=[]
-                    for _ in ids:
-                        if not select.select([mcp.stdout],[],[],10)[0]: raise RuntimeError('Parallel MCP request timeout')
-                        responses.append(json.loads(mcp.stdout.readline()))
-                    assert responses[0]['id']==ids[1], 'Page B blocked behind waiting page A'
-                    assert not responses[0]['result'].get('isError')
-                    assert responses[1]['result'].get('isError')
+                    replies=[receive(10) for _ in ids]
+                    assert replies[0]['id']==ids[1], 'Page B blocked behind waiting page A'
+                    assert not replies[0]['result'].get('isError')
+                    assert replies[1]['result'].get('isError')
                     print('PASS: page B completes while page A waits.',flush=True)
-                run_suite(operation, fixture_url, concurrent)
+                run_suite(operation, fixture_url, concurrent, progress=True)
                 tool("browser_revoke", {"device": "fixture"})
                 print("PASS: real Firefox + real extension + packaged stdio MCP. Android is NOT tested.", flush=True)
             except Exception:

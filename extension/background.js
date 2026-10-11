@@ -1,6 +1,6 @@
 /* Fixed commands, resident page engine and event-driven long polling. */
 const PAGE_OPERATIONS = new Set(["read", "inspect", "locate", "click", "click_point", "drag", "double_click", "hover", "focus", "fill", "type", "clear", "select", "check", "press", "scroll", "wait"]);
-const TAB_OPERATIONS = new Set(["tabs", "open", "activate", "close", "reload", "navigate", "back", "forward", "frames", "screenshot", "capabilities", "batch"]);
+const TAB_OPERATIONS = new Set(["tabs", "open", "activate", "foreground", "close", "reload", "navigate", "back", "forward", "frames", "screenshot", "capabilities", "batch"]);
 let connected = false, lastError = "", lastEndpoint = "";
 let config = {}, generation = 0;
 const activeRequests = new Set(), transportWaiters = new Set();
@@ -23,7 +23,7 @@ function scheduleCommand(command, current) {
   // Commands on the same tab stay ordered. Commands changing the active tab,
   // batches and implicit-tab commands are barriers across all earlier work.
   const tabId = command.args?.tabId;
-  const perTab = tabId != null && command.op !== "open" && command.op !== "activate" && command.op !== "close" && command.op !== "batch";
+  const perTab = tabId != null && command.op !== "open" && command.op !== "activate" && command.op !== "foreground" && command.op !== "close" && command.op !== "batch";
   const key = String(tabId);
   const dependencies = perTab ? [barrier, tabJobs.get(key)] : [barrier, ...tabJobs.values()];
   outstanding++;
@@ -90,19 +90,40 @@ function waitForTab(tabId, timeout = 10000, options = {}) {
   });
 }
 async function sendPage(tabId, op, args) {
+  const requested = Number(args.timeoutMs ?? 5000);
+  const limit = op === "wait" ? Math.min(15000, Math.max(0, Number.isFinite(requested) ? requested : 5000)) + 1500 : 10000;
+  let timer;
+  const deadline = {expired: false};
+  try {
+    // Android can suspend an inactive tab's message reply and its page timers.
+    // The background deadline releases scheduling barriers without retrying an
+    // action or claiming that its late completion has been canceled.
+    return await Promise.race([sendPageMessage(tabId, op, args, deadline), new Promise((_, reject) => {
+      timer = setTimeout(() => { deadline.expired = true; reject(Object.assign(Error("Page response timed out; an inactive Android tab may be suspended. Run foreground for this tab and open Firefox on Android. The action may still complete; do not repeat it automatically."), {code: "PAGE_RESPONSE_TIMEOUT"})); }, limit);
+    })]);
+  } finally { clearTimeout(timer); }
+}
+async function sendPageMessage(tabId, op, args, deadline) {
+  const assertLive = () => {
+    if (deadline.expired) throw Object.assign(Error("Page response deadline passed; the action was not retried."), {code: "PAGE_RESPONSE_TIMEOUT"});
+  };
   const options = {frameId: args.frameId ?? 0}, message = {type: "browser-bridge.command", engineVersion: browser.runtime.getManifest().version, op, args};
   let response;
-  try { response = await browser.tabs.sendMessage(tabId, message, options); }
+  try { assertLive(); response = await browser.tabs.sendMessage(tabId, message, options); }
   catch (error) {
     if (!/receiving end|establish connection|message port|No matching message handler/i.test(error.message)) throw error;
     // Existing tabs after an extension update may not yet have the resident engine.
+    assertLive();
     await browser.tabs.executeScript(tabId, {file: "page.js", frameId: options.frameId, runAt: "document_start"});
+    assertLive();
     response = await browser.tabs.sendMessage(tabId, message, options);
   }
   if (response?.error?.code === "ENGINE_VERSION_MISMATCH") {
     // The version handshake rejected the action before execution, so replacing
     // the fixed resident engine and sending it once is safe after an upgrade.
+    assertLive();
     await browser.tabs.executeScript(tabId, {file: "page.js", frameId: options.frameId, runAt: "document_start"});
+    assertLive();
     response = await browser.tabs.sendMessage(tabId, message, options);
   }
   if (response?.engineVersion && response.engineVersion !== message.engineVersion) throw Error("Page engine version mismatch; reload this tab");
@@ -116,7 +137,7 @@ async function execute(command) {
   if (op === "capabilities") return {version: browser.runtime.getManifest().version,
     operations: [...TAB_OPERATIONS, ...PAGE_OPERATIONS], transport: "HTTP long-poll", trustedEvents: false,
     frames: typeof browser.webNavigation?.getAllFrames === "function", screenshot: typeof browser.tabs.captureTab === "function",
-    openShadowRoots: true, closedShadowRoots: false, nativeAndroidUI: false, parallelTabs: true, maxParallelCommands: MAX_EXECUTING};
+    openShadowRoots: true, closedShadowRoots: false, nativeAndroidUI: false, foregroundAPI: {tabActivation: true, windowFocus: typeof browser.windows?.update === "function", androidOSForegroundGuaranteed: false}, parallelTabs: true, maxParallelCommands: MAX_EXECUTING};
   if (op === "batch") {
     if (!Array.isArray(args.steps) || args.steps.length < 1 || args.steps.length > 25 || args.steps.some(step => step.op === "batch")) throw Error("batch requires 1–25 non-nested steps");
     const results = [];
@@ -135,7 +156,21 @@ async function execute(command) {
   }
   const tab = args.tabId != null ? await browser.tabs.get(Number(args.tabId)) : (await browser.tabs.query({active: true, currentWindow: true}))[0];
   if (!tab) throw Error("No active tab");
-  if (op === "activate") { await browser.tabs.update(tab.id, {active: true}); return {ok: true}; }
+  if (op === "activate" || op === "foreground") {
+    const activeTab = await browser.tabs.update(tab.id, {active: true});
+    const windowId = activeTab?.windowId ?? tab.windowId;
+    const windowFocusSupported = typeof browser.windows?.update === "function" && Number.isInteger(windowId);
+    const result = {ok: true, tabId: tab.id, tabActivated: true, windowFocusSupported,
+      windowFocusRequested: false, windowFocused: null, androidOSForegroundGuaranteed: false};
+    if (windowFocusSupported) {
+      try {
+        const window = await browser.windows.update(windowId, {focused: true});
+        result.windowFocusRequested = true; result.windowFocused = window?.focused ?? null;
+      } catch (error) { result.windowFocusError = error.message; }
+    }
+    if (!result.windowFocusRequested) result.nextStep = "If Firefox remains in the background on Android, open Firefox on the device; extensions cannot guarantee Android app foregrounding.";
+    return result;
+  }
   if (op === "close") { await browser.tabs.remove(tab.id); return {ok: true}; }
   if (op === "navigate") {
     const action = () => browser.tabs.update(tab.id, {url: checkURL(args.url)});
@@ -155,7 +190,14 @@ async function execute(command) {
     if (typeof browser.tabs.captureTab !== "function") throw Error("Screenshot API is unavailable in this browser");
     const format = args.format || "jpeg", quality = args.quality ?? 80;
     if (!["jpeg", "png"].includes(format) || quality < 1 || quality > 100) throw Error("Invalid screenshot format or quality");
-    const dataURL = await browser.tabs.captureTab(tab.id, {format, quality});
+    let dataURL;
+    try { dataURL = await browser.tabs.captureTab(tab.id, {format, quality}); }
+    catch (error) {
+      if (/not visible|invisible|not active|background|not currently displayed|not selected/i.test(error.message)) {
+        throw Object.assign(Error("Tab is not visible. Run foreground for this tab, then open Firefox on Android if it remains in the background, and retry screenshot."), {code: "TAB_NOT_VISIBLE"});
+      }
+      throw error;
+    }
     const [, mimeType, data] = dataURL.match(/^data:([^;]+);base64,(.+)$/);
     return {mimeType, data, tabId: tab.id};
   }

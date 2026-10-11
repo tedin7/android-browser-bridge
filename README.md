@@ -31,7 +31,7 @@ Il flusso è:
 
 **Installazione da terminale:** [Claude Code](docs/CLAUDE_CODE.md) · [Codex CLI](docs/CODEX.md)
 
-**Download Firefox:** [XPI di sviluppo non firmato](https://github.com/tedin7/android-browser-bridge/releases/download/v0.2.0-dev/android-browser-bridge.xpi).
+**Download Firefox:** [XPI di sviluppo non firmato](https://github.com/tedin7/android-browser-bridge/releases/download/v0.2.1-dev/android-browser-bridge.xpi).
 La scheda Mozilla Add-ons non è ancora pubblicata: la guida Firefox contiene
 il percorso per la futura installazione dallo store e la procedura del maintainer.
 
@@ -96,12 +96,14 @@ con `--fallback-url`, e l'estensione riprova quando cambia rete.
 | `browser_devices` | Elenco browser e disponibilità recente |
 | `browser_command` | Operazione sul browser selezionato |
 | `browser_revoke` | Revoca credenziale e annulla comandi pendenti |
+| `browser_status` | Esito di un comando tramite ID, prima di ripetere un’azione incerta |
 | `browser_metrics` | Latenze aggregate e tempi di coda, senza contenuti delle pagine |
 
 Per un nuovo abbinamento con un nome già usato, revoca prima quel dispositivo.
 
 | Operazioni | Uso |
 | --- | --- |
+| `foreground` | Attiva la scheda e tenta il focus della finestra; helper Android locale opzionale |
 | `tabs`, `capabilities` | Schede disponibili e capacità effettive del browser |
 | `open`, `navigate`, `back`, `forward`, `reload`, `activate`, `close` | Navigazione; `waitUntil: "complete"` attende il caricamento |
 | `read`, `locate`, `inspect` | Testo, controlli, riferimenti, nomi accessibili e proprietà |
@@ -182,3 +184,29 @@ sessioni dell'utente. Nessuno di questi test sostituisce la prova su Android.
 Per un test nella stessa macchina: `python3 android-browser-mcp.pyz --local`.
 Licenza MIT. Il progetto è pubblicato come prototipo, non come release pronta
 per produzione.
+
+## Recupero guidato e Firefox in primo piano
+
+Gli errori MCP restituiscono `code`, `operation`, `actionMayHaveOccurred`,
+`retryableAfterRecovery` e `nextSteps`. Dopo un timeout di consegna, usa
+`browser_status` con il `commandId` restituito prima di ripetere un’azione.
+I batch riportano anche l’indice e i risultati già completati.
+
+`foreground` seleziona la scheda e tenta il focus tramite Firefox. Su Android
+un’app sospesa dal sistema potrebbe richiedere l’apertura manuale. Quando il MCP
+esegue sullo stesso Android tramite Termux, puoi configurare nel suo ambiente:
+
+```json
+{"BROWSER_BRIDGE_ANDROID_PACKAGE":"org.mozilla.fenix",
+ "BROWSER_BRIDGE_ANDROID_DEVICE":"tablet"}
+```
+
+Usa il nome del dispositivo abbinato al posto di `tablet`; `org.mozilla.fenix`
+è Nightly (`org.mozilla.firefox` stabile, `org.mozilla.firefox_beta` beta).
+L’helper usa il launcher locale Termux per aprire Firefox, soltanto per quel
+dispositivo e con un broker loopback. Non serve ADB. Su Linux remoto questo
+helper non è disponibile: nessun comando shell viene inviato ad Android.
+Un errore certo prima dell’azione può attivare un singolo recupero locale;
+un’azione con esito incerto viene segnalata senza ripetizione automatica.
+Gli screenshot e i clic visuali richiedono un viewport renderizzato; `read.viewport`
+mostra dimensioni e visibilità per aiutare l’agente a decidere il prossimo passo.

@@ -1,10 +1,24 @@
 """Portable browser interaction checks; uses only our local, disposable fixture."""
 
-def run_suite(operation, fixture_url, concurrent=None):
+import time
+
+def run_suite(operation, fixture_url, concurrent=None, progress=False):
     pages=[]
+    def report(phase):
+        if callable(progress): progress(phase)
+        elif progress: print('SUITE: '+phase, flush=True)
     def open_page(suffix=''):
-        tab=operation('open',{'url':fixture_url+suffix,'waitUntil':'complete'})['id'];pages.append(tab);return tab
+        tab=operation('open',{'url':fixture_url+suffix,'waitUntil':'complete'})['id'];pages.append(tab)
+        operation('activate',{'tabId':tab})
+        deadline=time.monotonic()+5
+        while True:
+            root=operation('inspect',{'tabId':tab,'selector':'html'})['rect']
+            if root['width']>0 and root['height']>0: break
+            if time.monotonic()>=deadline: raise RuntimeError('VIEWPORT_UNAVAILABLE: fixture has no rendered viewport; bring Firefox to the foreground and rerun the suite')
+            time.sleep(.1)
+        return tab
     try:
+        report('open fixture and require rendered viewport')
         tab=open_page()
         def op(action,**args): return operation(action,{'tabId':tab,**args})
         def inspect(selector): return op('inspect',selector=selector)
@@ -12,15 +26,18 @@ def run_suite(operation, fixture_url, concurrent=None):
         def rejects(action,code,**args):
             try: op(action,**args)
             except RuntimeError as error: assert code in str(error),(action,str(error))
-            else: raise AssertionError(action+' unexpectedly succeeded')
+            else: raise AssertionError(action+' '+str(args)+' unexpectedly succeeded')
         assert 'interaction lab' in op('read')['text']
         assert operation('capabilities')['trustedEvents'] is False
+        foreground=op('foreground');assert foreground['tabActivated'] and foreground['androidOSForegroundGuaranteed'] is False
+        report('pointer actions and blocked controls')
         op('click',selector='#click');assert text('#click-status')=='clicks:1'
         op('double_click',selector='#double');assert 'double clicked' in text('#double')
         op('hover',selector='#hover');assert text('#hover-status')=='hover:yes'
         for selector,code in [('#disabled','DISABLED'),('#hidden','NOT_VISIBLE'),('.duplicate','NOT_UNIQUE'),('#covered','COVERED')]: rejects('click',code,selector=selector)
         rejects('fill','READ_ONLY',selector='#readonly',value='x')
         rejects('fill','DISABLED',selector='#disabled-input',value='x')
+        report('forms, keyboard and password masking')
         op('fill',selector='#text',value='quotes \' unicode à');assert inspect('#text')['value']=="quotes ' unicode à"
         op('clear',selector='#text');assert inspect('#text')['value']==''
         op('type',selector='#text',value='abcd');op('press',selector='#text',key='Control+A');op('press',selector='#text',key='Backspace');assert inspect('#text')['value']==''
@@ -34,23 +51,30 @@ def run_suite(operation, fixture_url, concurrent=None):
         assert op('check',selector='#checkbox',checked=True)['checked'];assert not op('check',selector='#checkbox',checked=False)['checked']
         op('check',selector='#radio-one');op('check',selector='#radio-two');assert inspect('#radio-two')['checked'] and not inspect('#radio-one')['checked']
         op('press',selector='#text',key='Enter');assert text('#form-status')=='form:submitted'
+        report('stale refs, waits and open shadow roots')
         ref=op('locate',selector='#rerender')['elements'][0]['ref'];op('click',selector='#replace');rejects('inspect','STALE_REFERENCE',ref=ref)
         op('click',selector='#create-later');op('wait',selector='#delayed',timeoutMs=2000);op('click',selector='#remove-later');op('wait',selector='#delayed',state='detached',timeoutMs=1000)
         op('click',selector='#shadow-host >>> #shadow-button');assert text('#shadow-host >>> #shadow-result')=='shadow:clicked'
         op('fill',selector='#shadow-host >>> #shadow-input',value='shadow value');assert inspect('#shadow-host >>> #shadow-input')['value']=='shadow value'
+        report('canvas coordinate click and drag')
         op('scroll',selector='#point-target',mode='intoView')
         rect=op('inspect',selector='#point-target')['rect'];x=round(rect['x']+20);y=round(rect['y']+20)
         rejects('click_point','INVALID_ARGUMENT',x=-1,y=0)
         op('click_point',x=x,y=y);assert text('#point-status')==f'point:{x},{y}'
         op('drag',x=x,y=y,toX=x+80,toY=y+30,dragSteps=8);assert text('#drag-status')==f'drag:{x+80},{y+30}'
+        report('nested and document scrolling')
         nested=op('scroll',selector='#nested',x=100,y=200);assert nested['after']['x']==100 and nested['after']['y']==200
         before=op('scroll',mode='absolute',x=0,y=0)['after'];after=op('scroll',x=0,y=500)['after'];assert after['y']-before['y']==500
         op('scroll',selector='#end',mode='intoView');assert op('read')['scroll']['y']>500
+        report('frame interaction and real screenshot')
         frames=op('frames');frame=next(f for f in frames if f['frameId']!=0)
         op('click',frameId=frame['frameId'],selector='#frame-button');assert 'frame:clicked' in op('read',frameId=frame['frameId'])['text']
+        op('activate')
         shot=op('screenshot',format='png');assert shot['mimeType']=='image/png'
+        report('batch execution and failure boundary')
         batch=op('batch',steps=[{'op':'fill','args':{'selector':'#text','value':'batch'}},{'op':'inspect','args':{'selector':'#text'}}]);assert batch['completed']==2 and batch['results'][1]['result']['value']=='batch'
         batch=op('batch',steps=[{'op':'inspect','args':{'selector':'#text'}},{'op':'click','args':{'selector':'#disabled'}},{'op':'click','args':{'selector':'#click'}}]);assert batch['completed']==1 and batch['error']['index']==1
+        report('semantic element discovery')
         matches=op('locate',role='button',name='Click fixture',exact=True);assert matches['count']==1
         op('click',role='button',name='Click fixture',exact=True);assert text('#click-status')=='clicks:2'
         assert op('locate',label='Text',exact=True)['count']==1
@@ -60,9 +84,11 @@ def run_suite(operation, fixture_url, concurrent=None):
         nested_match=op('locate',textQuery='Nested action',exact=True);assert nested_match['count']==1 and nested_match['elements'][0]['tag']=='button'
         op('click',textQuery='Nested action',exact=True)
         rejects('click','NOT_UNIQUE',role='button',name='Duplicate',exact=True)
+        report('multiple pages and parallel MCP requests')
         other=open_page('?other=1');assert any(t['id']==other for t in operation('tabs'))
         operation('fill',{'tabId':other,'selector':'#text','value':'other page'});assert inspect('#text')['value']=='batch'
         if concurrent: concurrent(tab,other)
+        report('navigation history and large page pagination')
         operation('activate',{'tabId':other});operation('navigate',{'tabId':other,'url':fixture_url+'?nav=1','waitUntil':'complete'});operation('back',{'tabId':other,'waitUntil':'complete'});operation('forward',{'tabId':other,'waitUntil':'complete'});operation('reload',{'tabId':other,'waitUntil':'complete'})
         large=open_page('?large');page=operation('read',{'tabId':large,'maxElements':5,'textLimit':100});assert len(page['elements'])==5 and page['nextOffset'] is not None and page['textTruncated']
         print('PASS: fixed browser actions, forms, keyboard, safety errors, refs, frames, shadow DOM, screenshots, batch, semantic discovery and multiple pages.',flush=True)

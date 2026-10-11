@@ -1,8 +1,8 @@
 /* Resident fixed-operation engine. No remotely supplied scripts or expressions. */
 (() => {
-  if (globalThis.__browserBridgePageVersion === "0.2.0") return;
+  if (globalThis.__browserBridgePageVersion === "0.2.1") return;
   if (globalThis.__browserBridgePageListener) browser.runtime.onMessage.removeListener(globalThis.__browserBridgePageListener);
-  const engineVersion = "0.2.0";
+  const engineVersion = "0.2.1";
   globalThis.__browserBridgePageVersion = engineVersion;
   const epoch = Math.random().toString(36).slice(2, 10);
   let nextRef = 0;
@@ -140,6 +140,11 @@
     if (typeof el.checked === "boolean") result.checked = el.checked;
     return result;
   }
+  function viewportInfo() {
+    const visual = window.visualViewport;
+    return {width: innerWidth, height: innerHeight, documentWidth: document.documentElement.getBoundingClientRect().width, visibility: document.visibilityState,
+      visual: visual ? {width: visual.width, height: visual.height, offsetLeft: visual.offsetLeft, offsetTop: visual.offsetTop, scale: visual.scale} : null};
+  }
   function position(target) {
     const windowTarget = target === window, element = document.scrollingElement;
     return {x: windowTarget ? scrollX : target.scrollLeft, y: windowTarget ? scrollY : target.scrollTop,
@@ -176,18 +181,45 @@
     setText(el, value.slice(0, start) + text + value.slice(end), inputType);
     if (typeof el.setSelectionRange === "function" && el.selectionStart !== null) el.setSelectionRange(start + text.length, start + text.length);
   }
-  function pointer(el, args) {
-    actionable(el, args);
-    el.scrollIntoView({block: "center", inline: "nearest", behavior: "instant"});
-    const rect = el.getBoundingClientRect();
-    const x = Math.min(innerWidth - 1, Math.max(0, rect.x + rect.width / 2));
-    const y = Math.min(innerHeight - 1, Math.max(0, rect.y + rect.height / 2));
-    const root = el.getRootNode(), hit = root.elementFromPoint ? root.elementFromPoint(x, y) : document.elementFromPoint(x, y);
-    if (!args.force && hit && hit !== el && !el.contains(hit)) fail("COVERED", "Element is covered by another element");
-    return {clientX: x, clientY: y, bubbles: true, cancelable: true, view: window};
+  function viewportBounds() {
+    const visual = window.visualViewport;
+    const width = visual?.width ?? innerWidth, height = visual?.height ?? innerHeight;
+    if (!(width > 0 && height > 0 && document.documentElement.getBoundingClientRect().width > 0)) fail("VIEWPORT_UNAVAILABLE", "This page has no rendered viewport; bring Firefox and this tab to the foreground, then retry");
+    return {left: visual?.offsetLeft || 0, top: visual?.offsetTop || 0, right: (visual?.offsetLeft || 0) + width, bottom: (visual?.offsetTop || 0) + height};
   }
-  function mouseClick(el, args, detail) {
-    const point = pointer(el, args);
+  function renderFrame() {
+    return new Promise(resolve => {
+      let frame, timer;
+      const finish = () => { clearTimeout(timer); if (frame) cancelAnimationFrame(frame); resolve(); };
+      frame = requestAnimationFrame(finish); timer = setTimeout(finish, 120);
+    });
+  }
+  async function pointer(el, args) {
+    actionable(el, args);
+    let bounds = viewportBounds(), rect = el.getBoundingClientRect();
+    const outside = rect.left < bounds.left || rect.top < bounds.top || rect.right > bounds.right || rect.bottom > bounds.bottom;
+    if (outside) {
+      const beforeX = scrollX, beforeY = scrollY, beforeRect = rect;
+      el.scrollIntoView({block: "center", inline: "nearest", behavior: "instant"});
+      rect = el.getBoundingClientRect();
+      if (beforeX !== scrollX || beforeY !== scrollY || beforeRect.left !== rect.left || beforeRect.top !== rect.top) await renderFrame();
+      actionable(el, args); bounds = viewportBounds(); rect = el.getBoundingClientRect();
+    }
+    let point, hit;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const left = Math.max(bounds.left, rect.left), top = Math.max(bounds.top, rect.top);
+      const right = Math.min(bounds.right, rect.right), bottom = Math.min(bounds.bottom, rect.bottom);
+      if (right <= left || bottom <= top) fail("NOT_VISIBLE", "Element does not intersect the rendered viewport");
+      point = {clientX: (left + right) / 2, clientY: (top + bottom) / 2, bubbles: true, cancelable: true, view: window};
+      hit = hitAt(point);
+      if (hit || args.force || attempt === 1) break;
+      await renderFrame(); bounds = viewportBounds(); rect = el.getBoundingClientRect();
+    }
+    if (!args.force && (!hit || !composedContains(el, hit))) fail("COVERED", hit ? "Element is covered by another element" : "The browser could not verify an actionable element at this point; bring Firefox and this tab to the foreground");
+    return point;
+  }
+  async function mouseClick(el, args, detail) {
+    const point = await pointer(el, args);
     el.dispatchEvent(new PointerEvent("pointerdown", {...point, pointerType: "mouse", pointerId: 1, buttons: 1}));
     const proceed = el.dispatchEvent(new MouseEvent("mousedown", {...point, buttons: 1, detail}));
     if (proceed) el.focus({preventScroll: true});
@@ -198,7 +230,8 @@
     return point;
   }
   function viewportPoint(x, y) {
-    if (typeof x !== "number" || typeof y !== "number" || !Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) fail("INVALID_ARGUMENT", "Coordinates must be finite viewport CSS pixels within the visible page");
+    const bounds = viewportBounds();
+    if (typeof x !== "number" || typeof y !== "number" || !Number.isFinite(x) || !Number.isFinite(y) || x < bounds.left || y < bounds.top || x >= bounds.right || y >= bounds.bottom) fail("INVALID_ARGUMENT", "Coordinates must be finite viewport CSS pixels within the visible page");
     return {clientX: x, clientY: y, bubbles: true, cancelable: true, view: window};
   }
   function hitAt(point) {
@@ -287,7 +320,7 @@
     }
     if (op === "read") {
       const root = args.selector || args.ref || semanticArgs(args) ? one(args) : document.body;
-      if (!root) return {url: location.href, title: document.title, readyState: document.readyState, text: "", elements: [], scroll: position(window)};
+      if (!root) return {url: location.href, title: document.title, readyState: document.readyState, text: "", elements: [], scroll: position(window), viewport: viewportInfo()};
       const limit = Math.min(100000, Math.max(0, Number(args.textLimit ?? 12000))), max = Math.min(500, Math.max(0, Number(args.maxElements ?? 120)));
       const offset = Math.max(0, Number(args.offset || 0)), textOffset = Math.max(0, Number(args.textOffset || 0)), cache = new WeakMap();
       const text = args.text === false ? "" : root.innerText || root.textContent || "";
@@ -303,7 +336,7 @@
         text: text.slice(textOffset, textOffset + limit), textLength: text.length, textTruncated: textOffset + limit < text.length,
         elements: selected.slice(offset, offset + max).map(el => describe(el, cache, args.selectors !== false)),
         elementCount: selected.length, nextOffset: offset + max < selected.length ? offset + max : null,
-        scroll: position(window), documentId: epoch};
+        scroll: position(window), viewport: viewportInfo(), documentId: epoch};
     }
     if (op === "locate") { const matches = find(args), cache = new WeakMap(); return {count: matches.length, elements: matches.slice(0, Math.min(500, Math.max(0, Number(args.maxElements ?? 100)))).map(el => describe(el, cache, args.selectors !== false))}; }
     if (op === "scroll") {
@@ -342,12 +375,12 @@
     }
     actionable(el, args, ["fill", "type", "clear", "press"].includes(op));
     if (op === "click" || op === "double_click") {
-      const point = mouseClick(el, args, 1);
-      if (op === "double_click") { mouseClick(el, args, 2); el.dispatchEvent(new MouseEvent("dblclick", {...point, detail: 2})); }
+      const point = await mouseClick(el, args, 1);
+      if (op === "double_click") { await mouseClick(el, args, 2); el.dispatchEvent(new MouseEvent("dblclick", {...point, detail: 2})); }
       return {ok: true, ref: reference(el)};
     }
     if (op === "hover") {
-      const point = pointer(el, args);
+      const point = await pointer(el, args);
       for (const name of ["mouseover", "mouseenter", "mousemove"]) el.dispatchEvent(new MouseEvent(name, {...point, bubbles: name !== "mouseenter"}));
       return {ok: true};
     }

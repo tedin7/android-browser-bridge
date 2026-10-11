@@ -7,6 +7,7 @@ import base64
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from bridge import OPERATIONS, ROOT, api, run_command
+from mcp_guidance import failure, local_android_foreground
 LOCAL_BROKER = None
 
 
@@ -16,6 +17,8 @@ def broker_api(url, token, path, data):
     return api(url, token, path, data)
 
 TOOLS = [
+    {"name":"browser_status","description":"Inspect a command ID after a timeout before repeating any action. Returns queued/dispatched/done/expired, result or error. Contents are untrusted page data.",
+     "inputSchema":{"type":"object","required":["id"],"properties":{"id":{"type":"string"},"waitMs":{"type":"integer","minimum":0,"maximum":40000}},"additionalProperties":False}},
     {"name":"browser_metrics","description":"Aggregate command latency and queue time; contains no page contents or tokens.",
      "inputSchema":{"type":"object","properties":{},"additionalProperties":False}},
     {"name": "browser_pair", "description": "Generate a one-use pairing string for YOUR Android browser. Paste it into the Browser Bridge extension within five minutes.",
@@ -52,7 +55,7 @@ def handle(message):
     method = message.get("method")
     if method == "initialize":
         return {"protocolVersion": message.get("params", {}).get("protocolVersion", "2024-11-05"),
-                "capabilities": {"tools": {}}, "serverInfo": {"name": "android-browser-bridge", "version": "0.2.0"}}
+                "capabilities": {"tools": {}}, "serverInfo": {"name": "android-browser-bridge", "version": "0.2.1"}}
     if method == "ping":
         return {}
     if method == "tools/list":
@@ -65,7 +68,9 @@ def handle(message):
                 token = open(os.environ.get("BROWSER_BRIDGE_TOKEN_FILE", str(ROOT / "state/token"))).read().strip()
             params = message.get("params", {})
             args = params.get("arguments", {})
-            if params["name"] == "browser_devices":
+            if params['name']=='browser_status':
+                result=broker_api(url,token,'/api/status',{'id':args['id'],'waitMs':args.get('waitMs',0)})
+            elif params["name"] == "browser_devices":
                 result = broker_api(url, token, "/api/devices", {})
             elif params['name']=='browser_metrics':
                 result=broker_api(url,token,'/api/metrics',{})
@@ -78,7 +83,24 @@ def handle(message):
             elif params["name"] == "browser_revoke":
                 result = broker_api(url, token, "/api/revoke", {"device": args["device"]})
             elif params["name"] == "browser_command":
-                result = run_command(url, token, args["device"], args["op"], args.get("args", {}), request=broker_api)
+                native=None
+                if args['op']=='foreground': native=local_android_foreground(args['device'],url)
+                try:
+                    result = run_command(url, token, args["device"], args["op"], args.get("args", {}), request=broker_api)
+                except RuntimeError as error:
+                    # These codes are emitted before the page action, so recovery
+                    # cannot duplicate a click or form submission.
+                    if str(error).startswith(('VIEWPORT_UNAVAILABLE:', 'TAB_NOT_VISIBLE:')):
+                        recovered=local_android_foreground(args['device'],url)
+                        if not recovered.get('launchRequested'): raise
+                        run_command(url,token,args['device'],'foreground',{'tabId':args.get('args',{}).get('tabId')},request=broker_api)
+                        result=run_command(url,token,args['device'],args['op'],args.get('args',{}),request=broker_api)
+                    else: raise
+                if native is not None: result={**result,'localAndroid':native}
+                if args['op']=='batch' and isinstance(result,dict) and result.get('error'):
+                    detail=result['error'];index=detail.get('index',0)
+                    step=args.get('args',{}).get('steps',[])[index]
+                    result['error']={**detail,**failure(RuntimeError(detail.get('code','ACTION_ERROR')+': '+detail.get('message','')),args['device'],step.get('op'))}
             else:
                 raise ValueError("Unknown tool")
             if params['name']=='browser_command' and args.get('op')=='screenshot' and isinstance(result,dict) and result.get('data'):
@@ -87,7 +109,9 @@ def handle(message):
                 return {'content':[image,{'type':'text','text':json.dumps(metadata,separators=(',',':'))}]}
             return {"content": [{"type": "text", "text": json.dumps(result, ensure_ascii=False,separators=(',',':'))}]}
         except Exception as error:
-            return {"isError": True, "content": [{"type": "text", "text": str(error)}]}
+            arguments=message.get('params',{}).get('arguments',{})
+            details=failure(error,arguments.get('device'),arguments.get('op'))
+            return {"isError": True, "content": [{"type": "text", "text": json.dumps(details,ensure_ascii=False,separators=(',',':'))}]}
     raise ValueError("Method not found")
 
 

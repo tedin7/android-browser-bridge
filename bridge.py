@@ -18,7 +18,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 OPERATIONS = {"tabs", "open", "activate", "close", "reload", "read", "click", "fill", "scroll",
-    "capabilities", "navigate", "back", "forward", "frames", "screenshot", "inspect", "locate",
+    "capabilities", "foreground", "navigate", "back", "forward", "frames", "screenshot", "inspect", "locate",
     "double_click", "click_point", "drag", "hover", "focus", "type", "clear", "select", "check", "press", "wait", "batch"}
 
 
@@ -252,7 +252,7 @@ def make_server(port, token, credentials_file=None, host="127.0.0.1"):
 
         def do_GET(self):
             if self.path == "/health":
-                return self.reply(200, {"ok": True, "version": "0.2.0"})
+                return self.reply(200, {"ok": True, "version": "0.2.1"})
             if self.path in ("/", "/extension.xpi"):
                 file = ROOT / ("install.html" if self.path == "/" else "android-browser-bridge.xpi")
                 if not file.exists():

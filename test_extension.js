@@ -35,6 +35,8 @@ vm.runInContext(fs.readFileSync("extension/background.js","utf8").replace(/loop\
   const response=await context.request({url:"http://192.168.1.10:8766",urls:["http://192.168.1.10:8766","https://linux.example:8766"],token:"test",generation:0},"/api/poll",{});
   assert.equal(response.command,null);assert.equal(attempted.length,2);
   console.log("PASS: fixed-operation dispatch, static engine injection, frame targeting, batch failure boundary, screenshot, capabilities and network failover.");
+  await deadlineChecks();
+  await foregroundChecks();
   await navigationChecks();
   await schedulerChecks();
   await transportChecks();
@@ -103,3 +105,47 @@ async function navigationChecks() {
   context.browser.tabs.get=originalGet;
   console.log('PASS: navigation ignores initial about:blank and previous complete document.');
 }
+
+async function foregroundChecks(){await runRegression(FOREGROUND);}
+const FOREGROUND=String.raw`
+const vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/strict');
+let focused,active;
+const tab={id:3,windowId:8,url:'https://example.org'};
+const browser={tabs:{get:async()=>tab,update:async(id,args)=>{active={id,args};return tab;},captureTab:async()=>{throw Error('Tab is not visible');}},windows:{update:async(id,args)=>{focused={id,args};return {focused:true};}},runtime:{getManifest:()=>({version:'0.2.0'}),onMessage:{addListener(){}},onInstalled:{addListener(){}}},storage:{onChanged:{addListener(){}}},browserAction:{onClicked:{addListener(){}}}};
+const ctx=vm.createContext({URL,AbortController,setTimeout,clearTimeout,performance,browser});vm.runInContext(fs.readFileSync('extension/background.js','utf8').replace(/loop\(\);\s*$/,''),ctx);
+(async()=>{let result=await ctx.execute({op:'foreground',args:{tabId:3}});assert.equal(active.id,3);assert.equal(focused.id,8);assert.equal(result.windowFocused,true);assert.equal(result.androidOSForegroundGuaranteed,false);delete browser.windows;result=await ctx.execute({op:'activate',args:{tabId:3}});assert.equal(result.windowFocusSupported,false);assert(result.nextStep.includes('open Firefox'));await assert.rejects(ctx.execute({op:'screenshot',args:{tabId:3}}),e=>e.code==='TAB_NOT_VISIBLE');console.log('PASS: foreground window focus, Android unsupported fallback, invisible screenshot remedy.');})().catch(e=>{console.error(e);process.exitCode=1;});
+`;
+
+async function deadlineChecks(){await runRegression(DEADLINE);}
+const DEADLINE=String.raw`
+const vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/strict');
+let nextTimer=0,timers=new Map(),sendCount=0,injectCount=0,resolveMessage,rejectMessage;
+const tab={id:1,url:'https://example.org',status:'complete'};
+const ctx=vm.createContext({URL,AbortController,performance,
+ setTimeout(fn,ms){const id=++nextTimer;timers.set(id,{fn,ms});return id;},clearTimeout(id){timers.delete(id);},
+ browser:{tabs:{get:async id=>({...tab,id}),create:async()=>({...tab,id:4}),sendMessage:async id=>{sendCount++;if(id===1)return await new Promise((resolve,reject)=>{resolveMessage=resolve;rejectMessage=reject;});return {result:{ok:true}};},executeScript:async()=>{injectCount++;}},storage:{onChanged:{addListener(){}}},runtime:{getManifest:()=>({version:'0.2.1'}),onMessage:{addListener(){}},onInstalled:{addListener(){}}},browserAction:{onClicked:{addListener(){}}}}
+});
+vm.runInContext(fs.readFileSync('extension/background.js','utf8').replace(/loop\(\);\s*$/,''),ctx);
+vm.runInContext('config={enabled:true};generation=0;',ctx);
+const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
+async function expire(ms){await tick();const timer=[...timers.values()].find(t=>t.ms===ms);assert(timer,'missing deadline '+ms);timer.fn();}
+(async()=>{
+ const current={device:'fixture',generation:0};
+ const stuck=ctx.scheduleCommand({id:'stuck',op:'wait',args:{tabId:1,selector:'#missing',timeoutMs:1200}},current);
+ const barrier=ctx.scheduleCommand({id:'barrier',op:'open',args:{url:'https://example.org'}},current);
+ const later=ctx.scheduleCommand({id:'later',op:'read',args:{tabId:2}},current);
+ await expire(2700);await Promise.all([stuck,barrier,later]);
+ assert.equal(vm.runInContext('results[0].payload.error',ctx).startsWith('PAGE_RESPONSE_TIMEOUT:'),true);
+ assert.equal(sendCount,2,'later page must run after deadline releases global barrier');
+ resolveMessage({error:{code:'ENGINE_VERSION_MISMATCH',message:'old engine'}});await tick();
+ assert.equal(injectCount,0,'late mismatch must not inject engine or repeat action');assert.equal(sendCount,2);
+ const lateError=ctx.sendPage(1,'click',{});const check=assert.rejects(lateError,e=>e.code==='PAGE_RESPONSE_TIMEOUT');await expire(10000);await check;
+ rejectMessage(Error('Receiving end does not exist'));await tick();assert.equal(injectCount,0,'late receiver failure must not inject engine');assert.equal(sendCount,3);
+ let releaseInjection, afterInjectionCalls=0;
+ ctx.browser.tabs.sendMessage=async()=>{afterInjectionCalls++;throw Error('Receiving end does not exist');};
+ ctx.browser.tabs.executeScript=async()=>{injectCount++;await new Promise(resolve=>releaseInjection=resolve);};
+ const injectionPending=ctx.sendPage(1,'click',{});const injectionTimeout=assert.rejects(injectionPending,e=>e.code==='PAGE_RESPONSE_TIMEOUT');
+ await expire(10000);await injectionTimeout;releaseInjection();await tick();assert.equal(afterInjectionCalls,1,'engine injection finishing after deadline cannot send the action again');
+ console.log('PASS: bounded suspended-page deadline releases global barriers; late mismatch or missing receiver cannot redispatch.');
+})().catch(error=>{console.error(error);process.exitCode=1;});
+`;

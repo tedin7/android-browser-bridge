@@ -1,21 +1,55 @@
 {
   "manifest_version": 2,
   "name": "Android Browser Bridge",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Control your own browser from your Linux terminal, without ADB.",
-  "permissions": ["storage", "tabs", "webNavigation", "<all_urls>"],
-  "content_scripts": [{"matches": ["http://*/*", "https://*/*"], "js": ["page.js"], "all_frames": true, "run_at": "document_start"}],
-  "background": {"scripts": ["connection.js", "background.js"]},
-  "options_ui": {"page": "options.html", "open_in_tab": true},
-  "browser_action": {"default_title": "Browser Bridge"},
+  "permissions": [
+    "storage",
+    "tabs",
+    "webNavigation",
+    "<all_urls>"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "page.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_start"
+    }
+  ],
+  "background": {
+    "scripts": [
+      "connection.js",
+      "background.js"
+    ]
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "browser_action": {
+    "default_title": "Browser Bridge"
+  },
   "browser_specific_settings": {
     "gecko": {
       "id": "android-browser-bridge@local.invalid",
       "strict_min_version": "140.0",
       "data_collection_permissions": {
-        "required": ["websiteContent", "browsingActivity", "websiteActivity", "authenticationInfo"]
+        "required": [
+          "websiteContent",
+          "browsingActivity",
+          "websiteActivity",
+          "authenticationInfo"
+        ]
       }
     },
-    "gecko_android": {"strict_min_version": "142.0"}
+    "gecko_android": {
+      "strict_min_version": "142.0"
+    }
   }
 }

@@ -7,10 +7,10 @@ Non c'è ancora una pubblicazione su Mozilla Add-ons. Non è stato verificato
 su un vero Firefox Android: la prova finale richiede un dispositivo.
 
 **Download diretto dell'estensione di sviluppo:**
-https://github.com/tedin7/android-browser-bridge/releases/download/v0.2.0-dev/android-browser-bridge.xpi
+https://github.com/tedin7/android-browser-bridge/releases/download/v0.2.1-dev/android-browser-bridge.xpi
 
 **Release con pacchetto MCP e sorgenti:**
-https://github.com/tedin7/android-browser-bridge/releases/tag/v0.2.0-dev
+https://github.com/tedin7/android-browser-bridge/releases/tag/v0.2.1-dev
 
 Versioni minime: Firefox desktop 140, Firefox Android 142. Il manifest ora
 dichiara i tipi di dati trasferiti e la pagina di configurazione spiega il

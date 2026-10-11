@@ -4,7 +4,7 @@ import base64
 import json
 import os
 import re
-import select
+import queue
 import statistics
 import subprocess
 import sys
@@ -38,6 +38,12 @@ class MCP:
         env=os.environ.copy()
         env.update(BROWSER_BRIDGE_URL=url,BROWSER_BRIDGE_TOKEN_FILE=str(token_file))
         self.process=subprocess.Popen([sys.executable,str(ROOT/'mcp_server.py')],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,env=env)
+        self.responses=queue.Queue()
+        def receive():
+            for line in self.process.stdout:
+                self.responses.put(json.loads(line))
+            self.responses.put(None)
+        threading.Thread(target=receive,daemon=True).start()
         self.identifier=0
         self.rpc('initialize',{'protocolVersion':'2025-03-26','capabilities':{},'clientInfo':{'name':'android-profiler','version':'1'}})
 
@@ -45,12 +51,9 @@ class MCP:
         self.identifier+=1
         self.process.stdin.write(json.dumps({'jsonrpc':'2.0','id':self.identifier,'method':method,'params':params})+'\n')
         self.process.stdin.flush()
-        if not select.select([self.process.stdout],[],[],50)[0]:
-            raise RuntimeError('MCP timeout')
-        line=self.process.stdout.readline()
-        if not line:
-            raise RuntimeError('MCP exited: '+self.process.stderr.read())
-        response=json.loads(line)
+        try: response=self.responses.get(timeout=50)
+        except queue.Empty: raise RuntimeError('MCP timeout')
+        if response is None: raise RuntimeError('MCP exited')
         if 'error' in response: raise RuntimeError(str(response['error']))
         return response['result']
 
@@ -98,12 +101,12 @@ def main():
                 mcp.process.stdin.flush()
                 responses=[]
                 for _ in ids:
-                    if not select.select([mcp.process.stdout],[],[],15)[0]: raise RuntimeError('Parallel MCP timeout')
-                    responses.append(json.loads(mcp.process.stdout.readline()))
+                    try: responses.append(mcp.responses.get(timeout=15))
+                    except queue.Empty: raise RuntimeError('Parallel MCP timeout')
                 assert responses[0]['id']==ids[1] and not responses[0]['result'].get('isError'), 'Page B blocked behind page A'
                 assert responses[1]['result'].get('isError')
                 print('PASS: Android page B completes while page A waits.',flush=True)
-            run_suite(operation,url,concurrent)
+            run_suite(operation,url,concurrent,progress=True)
         tab_id=operation('open',{'url':url})['id']
         operation('read',{'tabId':tab_id})
         for op,values in [('tabs',{}),('read',{'tabId':tab_id}),('click',{'tabId':tab_id,'selector':'#click'}),('fill',{'tabId':tab_id,'selector':'#text','value':'MCP profile input'})]:

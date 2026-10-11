@@ -81,7 +81,7 @@ Passing lint does not equal Mozilla signing or manual-review approval.
 
 ## Other tests
 
-Fourteen Python tests passed, including actual HTTP authentication, device isolation,
+Twenty Python tests passed, including actual HTTP authentication, device isolation,
 one-use pairing, expiry, revocation, persistence and connection policy.
 JavaScript tests passed with mocked WebExtension APIs, including address failover.
 Earlier packaged smoke tests passed for local HTTP, direct HTTP and verified TLS
@@ -89,9 +89,29 @@ with a test certificate. They used a simulated browser.
 
 ## Current remaining work
 
-- Upgrade Android to extension 0.2.0 and run all 29 actions plus timing comparison.
+- Upgrade Android to extension 0.2.1 and complete all 30 actions plus timing comparison.
 - Confirm Android network changes and suspension behavior on real devices.
 - Authenticate to Mozilla AMO and submit the package for signing/review.
 - Replace unsigned release links with signed artifacts only after receiving them.
 
 No AMO submission or signing has been performed by this validation run.
+
+## Android 0.2.0 findings and 0.2.1 recovery
+
+The actual tablet reported extension 0.2.0 online after its manual upgrade.
+Firefox in background produced a zero-width document, invalid overlay geometry
+and an invisible-tab screenshot error. Launching Nightly with the local Android
+activity launcher was accepted. With Firefox foreground, the suite progressed
+through forms, keyboard, shadow DOM, coordinates, frames, PNG screenshots,
+batches and semantic discovery. A wait on a subsequently inactive tab did not
+return, blocking later global scheduler barriers. The full suite and optimized
+Android timings were therefore NOT completed.
+
+Version 0.2.1 adds strict hit-testing, viewport diagnostics, foreground support,
+optional explicitly bound Termux-local launcher, bounded page-response deadlines,
+structured error nextSteps and browser_status for uncertain outcomes. Local
+launcher invocation has been exercised on this tablet; final end-to-end Android
+validation requires installing extension 0.2.1. No uncertain action is replayed
+automatically.
+
+Final Firefox Linux 0.2.1 packaged MCP suite passed all 30 fixed operations and actual cross-page concurrency. Twenty Python tests passed, including browser_status; Node regressions cover suspended-page deadline release and no late reinjection or redispatch. Mozilla lint 0.2.1: zero errors, notices or warnings.
