@@ -32,8 +32,25 @@ def validate_origin(origin):
     raise ValueError("Internet connections require HTTPS; HTTP is limited to trusted private networks")
 
 
+def validate_token_path(path):
+    """Require an existing private admin token; attach never creates credentials."""
+    resolved = Path(path).expanduser().resolve(strict=True)
+    if not resolved.is_file():
+        raise ValueError("Token path must be an existing regular file")
+    if os.name == "posix" and resolved.stat().st_mode & 0o077:
+        raise ValueError("Token file must be private; set its permissions to 600")
+    with resolved.open() as stream:
+        value = stream.read(4097).strip()
+    if not value or len(value) > 4096:
+        raise ValueError("Token file must contain an existing nonempty admin token")
+    return resolved
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--attach", help="Connect stdio MCP to an existing broker; never start or stop its HTTP server")
+    parser.add_argument("--token-file", help="Existing private admin token file; required with --attach")
+    parser.add_argument("--broker-only", action="store_true", help="Run a persistent HTTP broker without stdio MCP; clients connect using --attach")
     parser.add_argument("--local", action="store_true", help="Loopback-only development")
     parser.add_argument("--url", "--public-url", dest="origin", help="Address Android can reach, e.g. https://linux.example.org:8766")
     parser.add_argument("--listen", default="127.0.0.1", help="Bind address; use 0.0.0.0 to accept direct IPv4 connections")
@@ -45,6 +62,14 @@ def main():
     args = parser.parse_args()
     if bool(args.cert) != bool(args.key):
         parser.error("Provide both --cert and --key")
+    if args.attach and args.broker_only:
+        parser.error("--attach and --broker-only cannot be combined")
+    if args.attach and not args.token_file:
+        parser.error("--attach requires --token-file for the existing broker's admin token")
+    if args.token_file and not args.attach:
+        parser.error("--token-file is for --attach; owner mode keeps its token in --state-dir")
+    if args.attach and (args.cert or args.local):
+        parser.error("--attach cannot be combined with --cert/--key or --local")
     if args.local:
         args.listen = "127.0.0.1"
     if args.listen != "127.0.0.1" and not args.origin:
@@ -54,6 +79,18 @@ def main():
     if len(args.fallback_url) > 4:
         parser.error("At most four fallback URLs allowed")
     alternatives = [validate_origin(origin) for origin in args.fallback_url]
+    if args.attach:
+        attach_url = validate_origin(args.attach)
+        existing_token = validate_token_path(args.token_file)
+        os.environ["BROWSER_BRIDGE_URL"] = attach_url
+        os.environ["BROWSER_BRIDGE_PUBLIC_URL"] = validate_origin(args.origin or attach_url)
+        os.environ["BROWSER_BRIDGE_CONNECTION_URLS"] = json.dumps(alternatives)
+        os.environ["BROWSER_BRIDGE_TOKEN_FILE"] = str(existing_token)
+        import mcp_server
+        mcp_server.LOCAL_BROKER = None
+        print("Browser Bridge attached to existing broker; client exit leaves the broker running.", file=sys.stderr)
+        mcp_main()
+        return
     state = Path(args.state_dir)
     state.mkdir(parents=True, exist_ok=True)
     state.chmod(0o700)
@@ -75,6 +112,13 @@ def main():
     os.environ["BROWSER_BRIDGE_TOKEN_FILE"] = str(state / "token")
     import mcp_server
     mcp_server.LOCAL_BROKER = httpd.broker
+    if args.broker_only:
+        print("Browser Bridge persistent broker ready. Connect MCP clients with --attach and its private token file.", file=sys.stderr)
+        try:
+            httpd.serve_forever()
+        finally:
+            httpd.server_close()
+        return
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     try:
         print("Browser Bridge ready (direct mode). Use MCP browser_pair to connect Android.", file=sys.stderr)
@@ -87,6 +131,8 @@ def main():
 if __name__ == "__main__":
     try:
         main()
+    except KeyboardInterrupt:
+        pass
     except (RuntimeError, ValueError, OSError) as error:
         print(str(error), file=sys.stderr)
         sys.exit(1)

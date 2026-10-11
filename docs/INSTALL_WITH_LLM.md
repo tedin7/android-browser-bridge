@@ -9,6 +9,9 @@ Installa Android Browser Bridge da
 https://github.com/tedin7/android-browser-bridge
 
 Leggi README.md, AGENTS.md e docs/NETWORKING.md prima di agire.
+Se voglio riusare il browser già abbinato da più terminali o macchine, leggi
+anche docs/MULTICLIENT.md: installa --attach con URL e file token già provisionati,
+non creare un secondo broker e non richiedere un nuovo abbinamento.
 Per Codex leggi docs/CODEX.md; per Claude Code leggi docs/CLAUDE_CODE.md.
 Esegui tu discovery, clone, build, test e configurazione MCP sul mio Linux.
 Non usare ADB, VPN obbligatorie, Cloudflare, relay o tunnel esterni.

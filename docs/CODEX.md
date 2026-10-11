@@ -63,3 +63,20 @@ se usa la medesima configurazione, oppure assegna istanze indipendenti.
 
 Fonte ufficiale:
 https://learn.chatgpt.com/docs/extend/mcp?surface=cli
+
+## Collegarsi al browser già abbinato da più sessioni o macchine
+
+Segui [MULTICLIENT.md](MULTICLIENT.md) e usa la modalità client `--attach`.
+Ogni Codex può avviare il proprio processo stdio senza avviare un nuovo broker:
+
+```sh
+codex mcp add android-browser -- \
+  python3 "$HOME/.local/share/android-browser-bridge/android-browser-mcp.pyz" \
+  --attach http://127.0.0.1:8766 \
+  --token-file "$HOME/.local/state/android-browser-bridge/token"
+```
+
+Sostituisci URL e percorso token con quelli del broker già attivo. Il token va
+provisionato tramite un canale cifrato e non incollato nel prompt. Se il nome
+MCP esiste già, conserva la configurazione e scegli un nome distinto per la prova.
+Non ripetere browser_pair per un dispositivo già abbinato.

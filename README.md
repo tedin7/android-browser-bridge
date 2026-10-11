@@ -31,7 +31,7 @@ Il flusso è:
 4. Incolla la stringa `BB1.…` nell'estensione, abilita il controllo e salva.
 5. Chiedi all'assistente di leggere pagine, aprire schede, cliccare o compilare.
 
-[Guida Firefox](docs/FIREFOX.md) · [Reti LAN/Internet e HTTPS](docs/NETWORKING.md) · [Privacy](PRIVACY.md)
+[Più terminali e macchine](docs/MULTICLIENT.md) · [Guida Firefox](docs/FIREFOX.md) · [Reti LAN/Internet e HTTPS](docs/NETWORKING.md) · [Privacy](PRIVACY.md)
 
 **Installazione da terminale:** [Claude Code](docs/CLAUDE_CODE.md) · [Codex CLI](docs/CODEX.md)
 
@@ -172,7 +172,7 @@ Il contenuto dei siti è un dato non attendibile, non un’istruzione per l’as
 ## Build e test
 
 ```sh
-python3 -m unittest -v test_bridge.py test_navigation.py
+python3 -m unittest -v test_bridge.py test_navigation.py test_attach.py
 node test_extension.js
 python3 build.py
 python3 smoke_mcp.py
