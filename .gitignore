@@ -1,0 +1,6 @@
+state/
+__pycache__/
+*.log
+*.pyz
+*.xpi
+*.zip

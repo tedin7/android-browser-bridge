@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+from pathlib import Path
+from zipfile import ZipFile, ZIP_DEFLATED
+import tempfile
+import shutil
+import zipapp
+
+root = Path(__file__).resolve().parent
+with ZipFile(root / "android-browser-bridge.xpi", "w", ZIP_DEFLATED) as archive:
+    for file in sorted((root / "extension").iterdir()):
+        if file.is_file():
+            archive.write(file, file.name)
+print(root / "android-browser-bridge.xpi")
+with tempfile.TemporaryDirectory() as directory:
+    staging = Path(directory)
+    for name in ("bridge.py", "mcp_server.py", "launcher.py", "install.html", "android-browser-bridge.xpi"):
+        shutil.copy2(root / name, staging / name)
+    (staging / "__main__.py").write_text('''import sys, tempfile, zipfile, runpy
+from pathlib import Path
+with tempfile.TemporaryDirectory(prefix="browser-bridge-") as directory:
+    with zipfile.ZipFile(sys.argv[0]) as archive:
+        archive.extractall(directory)
+    sys.path.insert(0, directory)
+    runpy.run_path(str(Path(directory) / "launcher.py"), run_name="__main__")
+''')
+    zipapp.create_archive(staging, root / "android-browser-mcp.pyz", interpreter="/usr/bin/env python3", compressed=True)
+print(root / "android-browser-mcp.pyz")
+with ZipFile(root / "android-browser-bridge-bundle.zip", "w", ZIP_DEFLATED) as archive:
+    names = ["AGENTS.md", "README.md", "LICENSE", "RELEASE_NOTES.md", "bridge.py", "mcp_server.py", "launcher.py", "install.py", "build.py", "test_bridge.py", "test_extension.js", "smoke_mcp.py", "install.html", "android-browser-bridge.xpi", "android-browser-mcp.pyz"]
+    for name in names:
+        archive.write(root / name, name)
+    for directory in ("extension", "docs"):
+        for file in sorted((root / directory).rglob("*")):
+            if file.is_file():
+                archive.write(file, file.relative_to(root))
+print(root / "android-browser-bridge-bundle.zip")
