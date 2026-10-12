@@ -1,35 +1,15 @@
 #!/usr/bin/env python3
 """Direct browser-to-Linux connection and stdio MCP. No relay or downloads."""
 import argparse
-import ipaddress
 import json
 import os
 import ssl
 import sys
 import threading
 from pathlib import Path
-from urllib.parse import urlsplit
+from connection import connection_path, load_connection, save_connection, validate_origin
 from bridge import make_server, token_file
 from mcp_server import main as mcp_main
-
-
-def validate_origin(origin):
-    parts = urlsplit(origin)
-    if parts.username or parts.password or parts.query or parts.fragment or parts.path not in ("", "/") or not parts.hostname:
-        raise ValueError("Use an HTTP(S) origin without path, credentials or query")
-    if parts.scheme == "https":
-        return origin.rstrip("/")
-    if parts.scheme == "http":
-        if parts.hostname == "localhost":
-            return origin.rstrip("/")
-        try:
-            address = ipaddress.ip_address(parts.hostname)
-        except ValueError:
-            address = None
-        networks = ["127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10", "::1/128", "fc00::/7"]
-        if address and any(address in ipaddress.ip_network(network) for network in networks if address.version == ipaddress.ip_network(network).version):
-            return origin.rstrip("/")
-    raise ValueError("Internet connections require HTTPS; HTTP is limited to trusted private networks")
 
 
 def validate_token_path(path):
@@ -48,6 +28,8 @@ def validate_token_path(path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--connection-file", help="Attach MCP using an existing private connection JSON; never starts a server")
+    parser.add_argument("--auto", action="store_true", help="Reuse the private runtime connection if present; otherwise run the local owner broker")
     parser.add_argument("--attach", help="Connect stdio MCP to an existing broker; never start or stop its HTTP server")
     parser.add_argument("--token-file", help="Existing private admin token file; required with --attach")
     parser.add_argument("--broker-only", action="store_true", help="Run a persistent HTTP broker without stdio MCP; clients connect using --attach")
@@ -60,6 +42,28 @@ def main():
     parser.add_argument("--key", help="PEM TLS private key for direct HTTPS")
     parser.add_argument("--state-dir", default=str(Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state"))) / "android-browser-bridge"))
     args = parser.parse_args()
+    profile_path = Path(args.connection_file).expanduser() if args.connection_file else connection_path()
+    use_profile = bool(args.connection_file) or (args.auto and (profile_path.exists() or profile_path.is_symlink()))
+    if args.attach and (args.connection_file or args.auto):
+        parser.error("--attach cannot be combined with --connection-file or --auto")
+    if use_profile and (args.broker_only or args.token_file or args.cert or args.key or args.local):
+        parser.error("Connection-profile attach cannot be combined with owner settings or --token-file")
+    if len(args.fallback_url) > 4:
+        parser.error("At most four fallback URLs allowed")
+    if use_profile:
+        profile = load_connection(profile_path)
+        os.environ["BROWSER_BRIDGE_URL"] = profile["url"]
+        os.environ["BROWSER_BRIDGE_PUBLIC_URL"] = validate_origin(args.origin or profile.get("browserUrl", profile["url"]))
+        os.environ["BROWSER_BRIDGE_TOKEN"] = profile["token"]
+        os.environ.pop("BROWSER_BRIDGE_TOKEN_FILE", None)
+        os.environ["BROWSER_BRIDGE_CONNECTION_URLS"] = json.dumps([validate_origin(origin) for origin in args.fallback_url])
+        if profile.get("device"):
+            os.environ["BROWSER_BRIDGE_DEVICE"] = profile["device"]
+        import mcp_server
+        mcp_server.LOCAL_BROKER = None
+        print("Browser Bridge attached using its private runtime connection; broker remains running.", file=sys.stderr)
+        mcp_main()
+        return
     if bool(args.cert) != bool(args.key):
         parser.error("Provide both --cert and --key")
     if args.attach and args.broker_only:
@@ -85,6 +89,7 @@ def main():
         os.environ["BROWSER_BRIDGE_URL"] = attach_url
         os.environ["BROWSER_BRIDGE_PUBLIC_URL"] = validate_origin(args.origin or attach_url)
         os.environ["BROWSER_BRIDGE_CONNECTION_URLS"] = json.dumps(alternatives)
+        os.environ.pop("BROWSER_BRIDGE_TOKEN", None)
         os.environ["BROWSER_BRIDGE_TOKEN_FILE"] = str(existing_token)
         import mcp_server
         mcp_server.LOCAL_BROKER = None
@@ -109,7 +114,10 @@ def main():
     os.environ["BROWSER_BRIDGE_URL"] = local_url
     os.environ["BROWSER_BRIDGE_PUBLIC_URL"] = validate_origin(args.origin or local_url)
     os.environ["BROWSER_BRIDGE_CONNECTION_URLS"] = json.dumps(alternatives)
+    os.environ.pop("BROWSER_BRIDGE_TOKEN", None)
     os.environ["BROWSER_BRIDGE_TOKEN_FILE"] = str(state / "token")
+    profile_url = validate_origin(args.origin) if args.cert and args.origin else local_url
+    save_connection({"url": profile_url, "token": token, "browserUrl": os.environ["BROWSER_BRIDGE_PUBLIC_URL"]}, state / "connection.json")
     import mcp_server
     mcp_server.LOCAL_BROKER = httpd.broker
     if args.broker_only:

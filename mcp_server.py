@@ -95,7 +95,7 @@ def handle(message):
     method = message.get("method")
     if method == "initialize":
         return {"protocolVersion": message.get("params", {}).get("protocolVersion", "2024-11-05"),
-                "capabilities": {"tools": {}}, "serverInfo": {"name": "android-browser-bridge", "version": "0.2.3"}}
+                "capabilities": {"tools": {}}, "serverInfo": {"name": "android-browser-bridge", "version": "0.2.4"}}
     if method == "ping":
         return {}
     if method == "tools/list":

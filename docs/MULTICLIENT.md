@@ -17,6 +17,16 @@ ascolto LAN esplicito oppure HTTPS pubblico come in [NETWORKING.md](NETWORKING.m
 Il processo broker deve restare attivo. Il suo token amministrativo è in
 `~/.local/state/android-browser-bridge/token`, con permessi privati.
 
+## Registrazione automatica su una macchina autorizzata
+
+Dalla checkout esegui `python3 install.py --codex`. Il repository scopre il profilo
+privato o migra i parametri Browser Bridge già registrati, installa il client e
+configura Codex con le istruzioni browser. Non passare IP, token o percorsi nel
+prompt all’agente: sono rilevati dalla configurazione autorizzata a runtime.
+Il profilo di connessione è un solo JSON privato con indirizzo e credenziale;
+non stamparne il contenuto. Questo non concede accesso a macchine sconosciute:
+la prima autorizzazione da parte del proprietario resta necessaria.
+
 ## 2. Installa un client in ciascun terminale o macchina
 
 Dopo aver clonato il repository:

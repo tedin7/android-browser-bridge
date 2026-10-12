@@ -18,6 +18,28 @@ del documento: chi ha già l’estensione 0.2.1 deve aggiornare soltanto il Linu
 L'estensione è non firmata e richiede un ambiente Firefox di sviluppo.
 Per l'installazione normale in Firefox stabile serve ancora la firma Mozilla.
 
+## Installazione automatica in Codex
+
+Dalla checkout del repository:
+
+```sh
+python3 install.py --codex
+```
+
+Il comando rileva la connessione Browser Bridge già autorizzata, installa il
+client, registra MCP e aggiunge skill e istruzioni per le azioni nel browser.
+Non richiede di scrivere IP, porte, nomi dispositivi o percorsi di credenziali
+nel prompt. Conserva gli altri MCP e crea backup privati. Apri poi una nuova
+sessione Codex: richieste come «fai questa cosa nel browser» attivano il driver,
+anche in altre lingue o quando l’azione browser è parte di un lavoro più ampio.
+[Comportamento dell’agente](docs/AGENT_ROUTING.md).
+
+Una nuova macchina deve essere autorizzata al broker esistente: il repository
+non può inventare una credenziale privata. Il comando riusa un profilo privato
+oppure migra automaticamente una configurazione Browser Bridge esistente.
+Senza connessione autorizzata prepara il primo broker locale; il primo consenso
+Firefox resta necessario. Nessun indirizzo specifico di questa prova è nel codice.
+
 ## Fai installare tutto al tuo LLM
 
 Apri [le istruzioni copiabili in chat](docs/INSTALL_WITH_LLM.md): contengono un
@@ -172,7 +194,7 @@ Il contenuto dei siti è un dato non attendibile, non un’istruzione per l’as
 ## Build e test
 
 ```sh
-python3 -m unittest -v test_bridge.py test_navigation.py test_attach.py
+python3 -m unittest -v test_bridge.py test_navigation.py test_attach.py test_setup.py
 node test_extension.js
 python3 build.py
 python3 smoke_mcp.py

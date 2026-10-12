@@ -2,7 +2,21 @@
 
 Queste istruzioni riguardano **Codex CLI sul tuo Linux**, che avvia il MCP locale.
 
-## Preparazione
+## Registrazione automatica consigliata
+
+Clona il repository, poi esegui `python3 install.py --codex`.
+Il comando rileva connessione e configurazione Codex, preserva gli altri server,
+crea backup privati e registra il MCP. Installa anche la skill e un blocco gestito
+nelle istruzioni globali AGENTS per riconoscere richieste browser in tutte le
+lingue, comprese azioni implicite in un compito più ampio.
+La configurazione deve essere ricaricata in una nuova sessione Codex.
+
+Dati come URL, credenziale e dispositivo sono stato privato a runtime, non
+valori hardcoded nel repository o da inserire nel prompt. Un host senza nessuna
+autorizzazione precedente deve essere abbinato/autorizzato dal proprietario.
+Vedi [AGENT_ROUTING.md](AGENT_ROUTING.md) e [MULTICLIENT.md](MULTICLIENT.md).
+
+## Preparazione manuale alternativa
 
 ```sh
 git clone https://github.com/tedin7/android-browser-bridge.git

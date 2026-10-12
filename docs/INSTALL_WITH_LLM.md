@@ -17,38 +17,31 @@ Esegui tu discovery, clone, build, test e configurazione MCP sul mio Linux.
 Non usare ADB, VPN obbligatorie, Cloudflare, relay o tunnel esterni.
 Non sovrascrivere altri server MCP, configurazioni, certificati o firewall.
 
-Determina l'indirizzo Linux raggiungibile dal mio Android:
-- stessa LAN: IP privato e porta 8766, HTTP solo su rete fidata;
-- reti diverse: indirizzo pubblico raggiungibile e HTTPS;
-- Linux dietro NAT: verifica port forwarding o IPv6 pubblico;
-- se Linux è dietro CGNAT senza accesso entrante, spiega il blocco concreto:
-  non fingere che l'estensione possa attraversarlo automaticamente.
-Se non puoi sapere in quale rete è Android, chiedimelo.
+Per Codex esegui python3 install.py --codex: rileva la connessione già
+configurata, migra le credenziali in un profilo privato e registra il MCP con
+skill e istruzioni per usare il browser in modo implicito in qualsiasi lingua.
+Non chiedermi IP o percorsi se sono già rilevabili; non inserirli nel codice.
+Preserva gli altri MCP e le istruzioni AGENTS esistenti.
 
-Clona il repository in una nuova directory, poi esegui:
-python3 -m unittest -v test_bridge.py test_navigation.py
-python3 build.py
+Per verificare la checkout, esegui prima python3 build.py, poi:
+python3 -m unittest -v test_bridge.py test_navigation.py test_attach.py test_setup.py
 python3 smoke_mcp.py
-Se Node è disponibile, esegui anche node test_extension.js.
+Se Node è disponibile esegui node test_extension.js.
 
-Usa install.py per installare il pacchetto nel mio utente e generare il blocco
-MCP. Per HTTPS diretto usa launcher.py con --cert e --key già disponibili;
-non disabilitare la verifica TLS e non esporre HTTP su Internet.
-Inserisci il blocco nel mio client MCP preservando gli altri server, se il
-client è identificabile; altrimenti forniscimi il blocco pronto da copiare.
+Se non c’è una connessione Browser Bridge autorizzata, non inventare credenziali.
+Prepara il broker locale e determina la raggiungibilità Android seguendo
+NETWORKING.md. Usa solo connessioni fidate: HTTPS su Internet, HTTP soltanto in
+LAN fidata o loopback con trasporto SSH cifrato già autorizzato. Se mancano
+indirizzo di rete o autorizzazione, spiega il requisito concreto.
+L’XPI è non firmato: non dichiarare installabilità normale su Firefox stabile.
+Se l’estensione 0.2.1 è già installata, aggiorna soltanto il Linux.
+Completa autonomamente i passaggi Android quando hai strumenti per controllarne
+l’interfaccia; altrimenti indica soltanto il consenso/installazione indispensabili.
+Non presentare foreground come controllo dell’installer.
 
-Spiegami i passaggi manuali Firefox da docs/FIREFOX.md. L'XPI attuale è NON
-firmato: non dichiarare che si installa normalmente in Firefox stabile.
-Esegui anche i passaggi Android se disponi di strumenti autorizzati per
-controllarne l’interfaccia. Se l’installer o il consenso non sono controllabili,
-spiega il limite concreto e indicami soltanto i passaggi manuali indispensabili.
-Non presentare foreground come uno strumento per controllare l’installer.
-Se l’estensione 0.2.1 è già installata, aggiorna il MCP Linux senza reinstallarla.
-Dammi l'URL diretto di download XPI dalla release pubblica. Non inventare
-un URL Mozilla Add-ons: la scheda del progetto non è ancora pubblicata.
-
-Dopo che avrò installato e abilitato l'estensione, chiama browser_pair con
-un nome per il mio dispositivo. Dammi la stringa BB1 da incollare entro
+Solo per un primo abbinamento, dopo installazione e controllo abilitato, usa
+browser_pair con il nome scelto per il dispositivo. Per un collegamento esistente
+usa browser_devices e non revocare/rifare l’abbinamento. Dammi la stringa BB1 da incollare entro
 cinque minuti. Verifica browser_devices, quindi prova tabs e open su
 https://example.org. Non automatizzare invii, acquisti o modifiche ad account
 senza una mia istruzione. Riporta cosa hai verificato e cosa rimane da fare.
