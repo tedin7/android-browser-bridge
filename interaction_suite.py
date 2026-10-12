@@ -31,7 +31,9 @@ def run_suite(operation, fixture_url, concurrent=None, progress=False):
         assert operation('capabilities')['trustedEvents'] is False
         foreground=op('foreground');assert foreground['tabActivated'] and foreground['androidOSForegroundGuaranteed'] is False
         report('pointer actions and blocked controls')
-        op('click',selector='#click');assert text('#click-status')=='clicks:1'
+        clicked=op('click',selector='#click');assert text('#click-status')=='clicks:1' and clicked['effect']=='dom_changed' and clicked['verified'] is True
+        # A widget that ignores synthetic input must be reported, not claimed as done.
+        ignored=op('click',selector='#trusted-only');assert ignored['effect']=='no_visible_change' and ignored['verified'] is False and 'native companion' in ignored['hint']
         op('double_click',selector='#double');assert 'double clicked' in text('#double')
         op('hover',selector='#hover');assert text('#hover-status')=='hover:yes'
         for selector,code in [('#disabled','DISABLED'),('#hidden','NOT_VISIBLE'),('.duplicate','NOT_UNIQUE'),('#covered','COVERED')]: rejects('click',code,selector=selector)
@@ -64,6 +66,8 @@ def run_suite(operation, fixture_url, concurrent=None, progress=False):
         op('drag',x=x,y=y,toX=x+80,toY=y+30,dragSteps=8);assert text('#drag-status')==f'drag:{x+80},{y+30}'
         report('nested and document scrolling')
         nested=op('scroll',selector='#nested',x=100,y=200);assert nested['after']['x']==100 and nested['after']['y']==200
+        op('scroll',selector='#nested',mode='absolute',x=0,y=0)
+        inner=op('scroll',selector='#nested-end',mode='intoView');assert inner['container']['tag']=='div' and inner['after']['y']>inner['before']['y']
         before=op('scroll',mode='absolute',x=0,y=0)['after'];after=op('scroll',x=0,y=500)['after'];assert after['y']-before['y']==500
         op('scroll',selector='#end',mode='intoView');assert op('read')['scroll']['y']>500
         report('frame interaction and real screenshot')
@@ -88,6 +92,8 @@ def run_suite(operation, fixture_url, concurrent=None, progress=False):
         other=open_page('?other=1');assert any(t['id']==other for t in operation('tabs'))
         operation('fill',{'tabId':other,'selector':'#text','value':'other page'});assert inspect('#text')['value']=='batch'
         if concurrent: concurrent(tab,other)
+        shell=open_page('?shell=1')
+        moved=operation('scroll',{'tabId':shell,'y':500});assert moved['container']['tag']=='div' and moved['after']['y']-moved['before']['y']==500 and moved['window']['maxY']==0
         report('navigation history and large page pagination')
         operation('activate',{'tabId':other});operation('navigate',{'tabId':other,'url':fixture_url+'?nav=1','waitUntil':'complete'});operation('back',{'tabId':other,'waitUntil':'complete'});operation('forward',{'tabId':other,'waitUntil':'complete'});operation('reload',{'tabId':other,'waitUntil':'complete'})
         large=open_page('?large');page=operation('read',{'tabId':large,'maxElements':5,'textLimit':100});assert len(page['elements'])==5 and page['nextOffset'] is not None and page['textTruncated']

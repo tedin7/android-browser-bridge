@@ -75,6 +75,10 @@ def _validate(schema, value, path):
             except ValueError:
                 pass
         if matches == 0 or (keyword == 'oneOf' and matches != 1):
+            keys = [alternative['required'][0] for alternative in schema[keyword] if list(alternative) == ['required'] and len(alternative['required']) == 1]
+            if len(keys) == len(schema[keyword]):
+                # Target alternatives: name the accepted fields so the caller fixes the step in one turn.
+                raise ValueError(path + (': needs exactly one of ' if matches else ': needs one of ') + ', '.join(keys) + ' (invalid alternatives)')
             raise ValueError(path + ': invalid alternatives')
 
 
@@ -90,8 +94,11 @@ page permissions, target uniqueness, visibility, enabled state and URL policy.
     _validate(spec['inputSchema'], arguments, 'args')
     if operation == 'batch':
         inherited = {key: arguments[key] for key in ('tabId', 'workflowId', 'leaseGeneration') if key in arguments}
-        for step in arguments['steps']:
-            validate_arguments(step['op'], {**inherited, **step.get('args', {})}, platform=platform)
+        for index, step in enumerate(arguments['steps']):
+            try:
+                validate_arguments(step['op'], {**inherited, **step.get('args', {})}, platform=platform)
+            except ValueError as error:
+                raise ValueError(f"steps[{index}] {step['op']}: {error}") from None
     return arguments
 
 

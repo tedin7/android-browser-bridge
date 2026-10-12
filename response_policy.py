@@ -13,7 +13,7 @@ PROTECTED = frozenset({
     "actionMayHaveOccurred", "retryableAfterRecovery", "localAndroid", "navigation",
     "verified", "verifiedVisible", "androidOSForegroundGuaranteed", "tabActivated",
     "windowFocusSupported", "windowFocusRequested", "windowFocused", "windowFocusError",
-    "requested", "actual", "matched", "attempts", "desktopOnly", "affectsWindowTabs", "windowId", "mimeType", "imageIndex", "ok", "trustedEvents", "urlQueryOmitted", "urlTruncated", "ref", "nameTruncated", "hrefTruncated",
+    "requested", "actual", "matched", "attempts", "desktopOnly", "affectsWindowTabs", "windowId", "mimeType", "imageIndex", "ok", "trustedEvents", "effect", "hint", "container", "urlQueryOmitted", "urlTruncated", "ref", "nameTruncated", "hrefTruncated",
 })
 RESULT_FIELDS = PROTECTED | frozenset({
     "text", "title", "elements", "ref", "tag", "role", "accessibleName", "name", "type", "href",

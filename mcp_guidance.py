@@ -44,6 +44,8 @@ def failure(error, device=None, operation=None):
     message=str(error)
     match=re.match(r'^([A-Z][A-Z_]+):', message)
     code=match.group(1) if match else 'ACTION_ERROR'
+    # An in-process broker raises BrokerError, whose code is not part of the message.
+    if not match and isinstance(getattr(error,'code',None),str) and re.fullmatch(r'[A-Z][A-Z_]+',error.code):code=error.code
     if 'Device offline' in message: code='DEVICE_OFFLINE'
     elif 'Missing host permission' in message: code='HOST_PERMISSION_REQUIRED'
     elif 'Unauthorized' in message: code='UNAUTHORIZED'

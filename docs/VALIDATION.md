@@ -493,3 +493,36 @@ into the browser_command description and the Codex skill became a pointer, remov
 the per-session skill-reading turn. Targeted Codex re-runs then measured form
 79.3k (baseline run 137.0k) and two tabs 79.8k (baseline run 75.8k) input tokens,
 both verified; these are single samples, not a new full matrix.
+
+### Extension 1.0.2: click effects, clear batch errors, app-shell scrolling
+
+Reviewed a real Claude session that tried to switch Search Console's "Rows per page"
+menu to 500 rows. It spent about twenty calls and gave up with 10 URLs per reason:
+
+- the menu ignores synthetic events, yet every click returned `ok:true`;
+- a `press` step without a target failed as `ACTION_ERROR: args: invalid alternatives`
+  with `actionMayHaveOccurred:true`, naming neither the step nor the missing field;
+- the page scrolls an inner element, so `scroll` reported `maxY:0` and moved nothing.
+
+Changes:
+
+- `click`, `double_click`, `click_point` and `press` now report `effect`
+  (`navigation`, `target_state_changed`, `dom_changed`, `no_visible_change`) and
+  `verified`. Styling changes on the control itself (focus, ripple) are ignored. On
+  `no_visible_change` a `hint` says not to repeat the action and to use a native
+  companion device for a real tap. Observation waits one frame, plus 200 ms only when
+  nothing changed yet.
+- Validation errors name the batch step and the accepted target fields
+  (`steps[1] press: args: needs one of selector, ref, role, …`). The broker rejects
+  them as `INVALID_ARGUMENT` before queueing, and the MCP reports
+  `actionMayHaveOccurred:false`.
+- `scroll` without a target moves the largest visible inner scroller when the window
+  cannot scroll; `intoView` reports the container that actually moved. Both return
+  `container` with its ref.
+- The `browser_command` rules explain `no_visible_change`.
+
+The real Firefox suite (`test_firefox.py`) gained a button that ignores untrusted
+clicks, an inner `intoView` case and an app-shell page; it passed together with all
+Node and Python suites and web-ext lint (0 errors, 0 warnings). Version 1.0.2 is
+Mozilla-signed for unlisted distribution
+(`ee57848410b94cbe8c82-1.0.2.xpi`, SHA-256 `bd9f26c3…0a48b05`).

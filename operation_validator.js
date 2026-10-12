@@ -23,7 +23,10 @@ function validateSchema(schema, value, path) {
   for (const key of ['anyOf', 'oneOf']) if (schema[key]) {
     let matches = 0;
     for (const alternative of schema[key]) { try { validateSchema(alternative, value, path); matches++; } catch (_) {} }
-    if (!matches || (key === 'oneOf' && matches !== 1)) fail('invalid alternatives');
+    if (!matches || (key === 'oneOf' && matches !== 1)) {
+      const keys = schema[key].filter(alternative => Object.keys(alternative).length === 1 && alternative.required?.length === 1).map(alternative => alternative.required[0]);
+      fail(keys.length === schema[key].length ? `${matches ? 'needs exactly one of' : 'needs one of'} ${keys.join(', ')} (invalid alternatives)` : 'invalid alternatives');
+    }
   }
 }
 function contract(operation) {
@@ -37,7 +40,10 @@ function validateArguments(operation, args = {}, platform) {
   if (operation === 'batch') {
     const inherited = {};
     for (const key of ['tabId', 'workflowId', 'leaseGeneration']) if (args[key] !== undefined) inherited[key] = args[key];
-    for (const step of args.steps) validateArguments(step.op, {...inherited, ...step.args}, platform);
+    args.steps.forEach((step, index) => {
+      try { validateArguments(step.op, {...inherited, ...step.args}, platform); }
+      catch (error) { throw Object.assign(Error(`steps[${index}] ${step.op}: ${error.message}`), {code: error.code || 'INVALID_ARGUMENT'}); }
+    });
   }
   return args;
 }

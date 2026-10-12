@@ -30,7 +30,7 @@ const runtime = vm.createContext({URL,AbortController,setTimeout,clearTimeout,pe
 vm.runInContext(fs.readFileSync('extension/operations.generated.js','utf8'),runtime);
 vm.runInContext(fs.readFileSync('extension/background.js','utf8').replace(/loop\(\);\s*$/,''),runtime);
 (async()=>{
- await assert.rejects(runtime.execute({op:'batch',args:{steps:[{op:'open',args:{url:'https://example.org'}},{op:'fill',args:{value:'x'}}]}}),/invalid alternatives/);
+ await assert.rejects(runtime.execute({op:'batch',args:{steps:[{op:'open',args:{url:'https://example.org'}},{op:'fill',args:{value:'x'}}]}}),/steps\[1\] fill: args: needs one of selector, ref/);
  assert.equal(writes,0);
  console.log('PASS: generated contract types, bounds, batch inheritance, recursive output contracts and zero mutations on malformed batch.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

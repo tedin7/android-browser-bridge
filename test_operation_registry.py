@@ -45,6 +45,22 @@ class OperationRegistryTests(unittest.TestCase):
             with self.subTest(invalid=invalid), self.assertRaises(ValueError):
                 validate_arguments('batch', {'steps': [{'op': 'click', 'args': {'selector': '#buy'}}, invalid]})
 
+    def test_batch_errors_name_step_and_accepted_targets(self):
+        steps = [{'op': 'read', 'args': {}}, {'op': 'press', 'args': {'key': 'End'}}]
+        with self.assertRaisesRegex(ValueError, r'^steps\[1\] press: args: needs one of selector, ref, role'):
+            validate_arguments('batch', {'tabId': 1, 'steps': steps})
+
+    def test_broker_reports_invalid_arguments_as_precondition(self):
+        from bridge import BrokerError
+        from mcp_guidance import failure
+        detail = failure(BrokerError('INVALID_ARGUMENT', 'steps[1] press: args: needs one of selector'), 'pad', 'batch')
+        self.assertEqual(detail['code'], 'INVALID_ARGUMENT')
+        self.assertFalse(detail['actionMayHaveOccurred'])
+        # Over HTTP the broker body becomes "CODE: message".
+        detail = failure(RuntimeError('INVALID_ARGUMENT: steps[1] press: args: needs one of selector'), 'pad', 'batch')
+        self.assertEqual(detail['code'], 'INVALID_ARGUMENT')
+        self.assertFalse(detail['actionMayHaveOccurred'])
+
     def test_platform_checked_recursively(self):
         command = {'steps': [{'op': 'viewport', 'args': {'width': 1280, 'height': 720}}]}
         validate_arguments('batch', command, platform='firefox-desktop')

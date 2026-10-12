@@ -1,8 +1,8 @@
 /* Resident fixed-operation engine. No remotely supplied scripts or expressions. */
 (() => {
-  if (globalThis.__browserBridgePageVersion === "1.0.1") return;
+  if (globalThis.__browserBridgePageVersion === "1.0.2") return;
   if (globalThis.__browserBridgePageListener) browser.runtime.onMessage.removeListener(globalThis.__browserBridgePageListener);
-  const engineVersion = "1.0.1";
+  const engineVersion = "1.0.2";
   globalThis.__browserBridgePageVersion = engineVersion;
   const epoch = Math.random().toString(36).slice(2, 10);
   let nextRef = 0;
@@ -335,6 +335,61 @@
     target.dispatchEvent(new MouseEvent("mouseup", {...end, detail: 1}));
     return {ok: true, ref: reference(target), from: {x: start.clientX, y: start.clientY}, to: {x: end.clientX, y: end.clientY}, steps, trustedEvents: false};
   }
+  // Observable evidence after synthetic input; never a claim about application semantics.
+  const stateAttributes = ["aria-expanded", "aria-checked", "aria-selected", "aria-pressed", "aria-activedescendant", "open"];
+  const noChangeHint = "No observable change: this widget may ignore synthetic events. Do not repeat the same action; read to confirm, then use a native companion device (args.package) for a real tap if one is available.";
+  function targetState(el) {
+    const parts = [];
+    for (let node = el, depth = 0; node?.nodeType === 1 && depth < 4; node = node.parentElement, depth++)
+      for (const name of stateAttributes) if (node.hasAttribute(name)) parts.push(depth + name + "=" + node.getAttribute(name));
+    if (typeof el.checked === "boolean") parts.push("checked=" + el.checked);
+    if ("value" in el && typeof el.value === "string") parts.push("value=" + el.value);
+    return parts.join("|");
+  }
+  function linked(a, b) { return composedContains(a, b) || composedContains(b, a); }
+  async function observeEffect(el, action) {
+    if (typeof MutationObserver !== "function" || typeof addEventListener !== "function") return action();
+    const url = location.href, state = targetState(el);
+    let changes = 0, leaving = false, wake = null;
+    // The control's own focus, hover and ripple styling is not an effect of the action.
+    const count = records => { for (const record of records) if (!(record.type === "attributes" && ["class", "style"].includes(record.attributeName) && (record.target === el || linked(el, record.target)))) changes++; };
+    const observer = new MutationObserver(count);
+    const leave = () => { leaving = true; wake?.(); };
+    observer.observe(document, {subtree: true, childList: true, attributes: true, characterData: true});
+    addEventListener("pagehide", leave); addEventListener("beforeunload", leave);
+    try {
+      const result = await action();
+      const settle = delay => new Promise(resolve => { wake = resolve; if (leaving) resolve(); else setTimeout(resolve, delay); });
+      await renderFrame(); count(observer.takeRecords());
+      // Menus and dialogs often open after a short timer; wait a little longer only when nothing changed yet.
+      if (!leaving && !changes && location.href === url && targetState(el) === state) { await settle(200); count(observer.takeRecords()); }
+      const effect = leaving || location.href !== url ? "navigation" : !el.isConnected || targetState(el) !== state ? "target_state_changed" : changes ? "dom_changed" : "no_visible_change";
+      return {...result, verified: effect !== "no_visible_change", effect, ...(effect === "no_visible_change" ? {hint: noChangeHint} : {})};
+    } finally {
+      observer.disconnect(); removeEventListener("pagehide", leave); removeEventListener("beforeunload", leave);
+    }
+  }
+  function scrollable(node) {
+    if (!(node instanceof Element) || (node.scrollHeight <= node.clientHeight + 1 && node.scrollWidth <= node.clientWidth + 1)) return false;
+    const style = getComputedStyle(node);
+    return /(auto|scroll|overlay)/.test(style.overflowY + " " + style.overflowX);
+  }
+  function scrollContainer(el) {
+    for (let node = el.parentElement || el.getRootNode().host; node && node !== document.body && node !== document.documentElement; node = node.parentElement || node.getRootNode().host)
+      if (scrollable(node)) return node;
+    return window;
+  }
+  // App shells (e.g. Search Console) keep the window fixed and scroll one large inner element.
+  function mainScroller() {
+    const root = position(window);
+    if (root.maxY > 0 || root.maxX > 0) return window;
+    let best = window, area = 0;
+    for (const el of allElements()) {
+      if (el.clientHeight * el.clientWidth <= area || !scrollable(el) || !visible(el)) continue;
+      best = el; area = el.clientHeight * el.clientWidth;
+    }
+    return best;
+  }
   async function execute(op, args = {}) {
     if (!pageOps.has(op)) fail("UNSUPPORTED_OPERATION", "Unsupported page operation");
     if (args.expectedDocumentId !== undefined && args.expectedDocumentId !== epoch) fail("STALE_REFERENCE", "Document changed; observe the current page before acting");
@@ -351,7 +406,8 @@
       const result = op === "webmcp_discover" ? await adapter.discover() : await adapter.invoke({name: args.toolName, input: args.input, expectedSchema: args.expectedSchema, timeoutMs: args.timeoutMs});
       return {...result, documentId: epoch};
     }
-    if (op === "click_point" || op === "drag") return coordinateAction(op, args);
+    if (op === "click_point") { const start = viewportPoint(args.x, args.y), hit = hitAt(start); return hit ? observeEffect(hit, () => coordinateAction(op, args)) : coordinateAction(op, args); }
+    if (op === "drag") return coordinateAction(op, args);
     if (op === "wait") {
       const timeout = Math.min(15000, Math.max(0, Number(args.timeoutMs ?? 5000))), state = args.state || "visible";
       if (!["visible", "hidden", "attached", "detached"].includes(state)) fail("INVALID_ARGUMENT", "Unknown wait state");
@@ -392,13 +448,14 @@
     }
     if (op === "locate") { const matches = find(args), cache = new WeakMap(); return {count: matches.length, elements: matches.slice(0, Math.min(500, Math.max(0, Number(args.maxElements ?? 100)))).map(el => describe(el, cache, args.selectors !== false, responseFields))}; }
     if (op === "scroll") {
-      const target = args.selector || args.ref || semanticArgs(args) ? one(args) : window, before = position(target);
       const mode = args.mode || "relative", behavior = args.behavior || "instant";
       if (!["relative", "absolute", "intoView"].includes(mode) || !["instant", "smooth", "auto"].includes(behavior)) fail("INVALID_ARGUMENT", "Unknown scroll mode or behavior");
-      if (mode === "intoView") {
-        if (target === window) fail("INVALID_ARGUMENT", "intoView requires selector or ref");
-        target.scrollIntoView({block: args.block || "center", inline: "nearest", behavior});
-      } else {
+      const element = args.selector || args.ref || semanticArgs(args) ? one(args) : null;
+      if (mode === "intoView" && !element) fail("INVALID_ARGUMENT", "intoView requires selector or ref");
+      // intoView reports the container that actually moved; a window scroll falls back to the main inner scroller.
+      const target = mode === "intoView" ? scrollContainer(element) : element || mainScroller(), before = position(target);
+      if (mode === "intoView") element.scrollIntoView({block: args.block || "center", inline: "nearest", behavior});
+      else {
         const x = Number(args.x ?? (mode === "relative" ? 0 : before.x)), y = Number(args.y ?? (mode === "relative" ? 500 : before.y));
         if (!Number.isFinite(x) || !Number.isFinite(y)) fail("INVALID_ARGUMENT", "Scroll coordinates must be finite");
         if (mode === "relative") target.scrollBy({left: x, top: y, behavior});
@@ -413,7 +470,7 @@
           if (quiet >= 3 || performance.now() - started > 2000) { clearInterval(timer); resolve(); }
         }, 50);
       });
-      return {before, after: position(target), window: position(window)};
+      return {before, after: position(target), window: position(window), ...(target !== window ? {container: {ref: reference(target), tag: target.tagName.toLowerCase()}} : {})};
     }
     const el = one(args);
     if (op === "inspect") {
@@ -427,11 +484,11 @@
       return result;
     }
     actionable(el, args, ["fill", "type", "clear", "press"].includes(op));
-    if (op === "click" || op === "double_click") {
+    if (op === "click" || op === "double_click") return observeEffect(el, async () => {
       const point = await mouseClick(el, args, 1);
       if (op === "double_click") { await mouseClick(el, args, 2); el.dispatchEvent(new MouseEvent("dblclick", {...point, detail: 2})); }
       return {ok: true, ref: reference(el)};
-    }
+    });
     if (op === "hover") {
       const point = await pointer(el, args);
       for (const name of ["mouseover", "mouseenter", "mousemove"]) el.dispatchEvent(new MouseEvent(name, {...point, bubbles: name !== "mouseenter"}));
@@ -466,38 +523,39 @@
       if (el.checked !== checked) el.click();
       return {checked: el.checked};
     }
-    if (op === "press") {
-      el.focus({preventScroll: true});
-      const keys = String(args.key || "").split("+"), key = keys.pop();
-      if (!key) fail("INVALID_ARGUMENT", "key required");
-      const modifiers = {ctrlKey: keys.includes("Control"), metaKey: keys.includes("Meta"), shiftKey: keys.includes("Shift"), altKey: keys.includes("Alt")};
-      const allowed = el.dispatchEvent(new KeyboardEvent("keydown", {key, ...modifiers, bubbles: true, cancelable: true}));
-      if (allowed) {
-        if ((modifiers.ctrlKey || modifiers.metaKey) && key.toLowerCase() === "a" && typeof el.select === "function") el.select();
-        else if ((modifiers.ctrlKey || modifiers.metaKey) && key.toLowerCase() === "a" && el.isContentEditable) { const selection = window.getSelection(); selection.removeAllRanges(); const range = document.createRange(); range.selectNodeContents(el); selection.addRange(range); }
-        else if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(key) && el.selectionStart !== null && typeof el.setSelectionRange === "function") {
-          const start = el.selectionStart, end = el.selectionEnd, length = editableText(el).length;
-          const target = key === "Home" ? 0 : key === "End" ? length : key === "ArrowLeft" ? Math.max(0, (modifiers.shiftKey ? end : start) - (start !== end && !modifiers.shiftKey ? 0 : 1)) : Math.min(length, end + (start !== end && !modifiers.shiftKey ? 0 : 1));
-          el.setSelectionRange(modifiers.shiftKey ? Math.min(start, target) : target, modifiers.shiftKey ? Math.max(start, target) : target);
-        }
-        else if ((key === "Enter" || key === " " || key === "Space") && ["button", "checkbox", "radio", "link"].includes(roleOf(el))) el.click();
-        else if (key === "Enter" && el instanceof HTMLInputElement && el.form) el.form.requestSubmit();
-        else if (key === "Enter" && el instanceof HTMLTextAreaElement) insertText(el, "\n", "insertLineBreak");
-        else if (["Backspace", "Delete"].includes(key)) {
-          const value = editableText(el), start = el.selectionStart ?? value.length, end = el.selectionEnd ?? value.length;
-          const from = start === end && key === "Backspace" ? Math.max(0, start - 1) : start;
-          const to = start === end && key === "Delete" ? Math.min(value.length, end + 1) : end;
-          setText(el, value.slice(0, from) + value.slice(to), key === "Backspace" ? "deleteContentBackward" : "deleteContentForward");
-          if (typeof el.setSelectionRange === "function" && el.selectionStart !== null) el.setSelectionRange(from, from);
-        } else if (key === "Tab") {
-          const fields = [...document.querySelectorAll("a[href],button,input,textarea,select,[tabindex],[contenteditable=true]")].filter(element => visible(element) && enabled(element) && element.tabIndex >= 0);
-          const next = fields[(fields.indexOf(el) + (modifiers.shiftKey ? -1 : 1) + fields.length) % fields.length]; next?.focus({preventScroll: true});
-        } else if (key.length === 1 && !modifiers.ctrlKey && !modifiers.metaKey && !modifiers.altKey) insertText(el, key);
-      }
-      el.dispatchEvent(new KeyboardEvent("keyup", {key, ...modifiers, bubbles: true}));
-      return {ok: true, defaultPrevented: !allowed};
-    }
+    if (op === "press") return observeEffect(el, () => pressKey(el, args));
     fail("UNSUPPORTED_OPERATION", "Unsupported page operation");
+  }
+  function pressKey(el, args) {
+    el.focus({preventScroll: true});
+    const keys = String(args.key || "").split("+"), key = keys.pop();
+    if (!key) fail("INVALID_ARGUMENT", "key required");
+    const modifiers = {ctrlKey: keys.includes("Control"), metaKey: keys.includes("Meta"), shiftKey: keys.includes("Shift"), altKey: keys.includes("Alt")};
+    const allowed = el.dispatchEvent(new KeyboardEvent("keydown", {key, ...modifiers, bubbles: true, cancelable: true}));
+    if (allowed) {
+      if ((modifiers.ctrlKey || modifiers.metaKey) && key.toLowerCase() === "a" && typeof el.select === "function") el.select();
+      else if ((modifiers.ctrlKey || modifiers.metaKey) && key.toLowerCase() === "a" && el.isContentEditable) { const selection = window.getSelection(); selection.removeAllRanges(); const range = document.createRange(); range.selectNodeContents(el); selection.addRange(range); }
+      else if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(key) && el.selectionStart !== null && typeof el.setSelectionRange === "function") {
+        const start = el.selectionStart, end = el.selectionEnd, length = editableText(el).length;
+        const target = key === "Home" ? 0 : key === "End" ? length : key === "ArrowLeft" ? Math.max(0, (modifiers.shiftKey ? end : start) - (start !== end && !modifiers.shiftKey ? 0 : 1)) : Math.min(length, end + (start !== end && !modifiers.shiftKey ? 0 : 1));
+        el.setSelectionRange(modifiers.shiftKey ? Math.min(start, target) : target, modifiers.shiftKey ? Math.max(start, target) : target);
+      }
+      else if ((key === "Enter" || key === " " || key === "Space") && ["button", "checkbox", "radio", "link"].includes(roleOf(el))) el.click();
+      else if (key === "Enter" && el instanceof HTMLInputElement && el.form) el.form.requestSubmit();
+      else if (key === "Enter" && el instanceof HTMLTextAreaElement) insertText(el, "\n", "insertLineBreak");
+      else if (["Backspace", "Delete"].includes(key)) {
+        const value = editableText(el), start = el.selectionStart ?? value.length, end = el.selectionEnd ?? value.length;
+        const from = start === end && key === "Backspace" ? Math.max(0, start - 1) : start;
+        const to = start === end && key === "Delete" ? Math.min(value.length, end + 1) : end;
+        setText(el, value.slice(0, from) + value.slice(to), key === "Backspace" ? "deleteContentBackward" : "deleteContentForward");
+        if (typeof el.setSelectionRange === "function" && el.selectionStart !== null) el.setSelectionRange(from, from);
+      } else if (key === "Tab") {
+        const fields = [...document.querySelectorAll("a[href],button,input,textarea,select,[tabindex],[contenteditable=true]")].filter(element => visible(element) && enabled(element) && element.tabIndex >= 0);
+        const next = fields[(fields.indexOf(el) + (modifiers.shiftKey ? -1 : 1) + fields.length) % fields.length]; next?.focus({preventScroll: true});
+      } else if (key.length === 1 && !modifiers.ctrlKey && !modifiers.metaKey && !modifiers.altKey) insertText(el, key);
+    }
+    el.dispatchEvent(new KeyboardEvent("keyup", {key, ...modifiers, bubbles: true}));
+    return {ok: true, defaultPrevented: !allowed};
   }
   const listener = message => {
     if (message?.type !== "browser-bridge.command" || globalThis.__browserBridgePageVersion !== engineVersion) return undefined;

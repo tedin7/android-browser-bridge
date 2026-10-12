@@ -1,6 +1,6 @@
 {
   "registryVersion": 1,
-  "productVersion": "1.0.1",
+  "productVersion": "1.0.2",
   "operations": {
     "activate": {
       "engine": "background",
@@ -841,6 +841,21 @@
           },
           "ref": {
             "type": "string"
+          },
+          "verified": {
+            "type": "boolean"
+          },
+          "effect": {
+            "type": "string",
+            "enum": [
+              "navigation",
+              "target_state_changed",
+              "dom_changed",
+              "no_visible_change"
+            ]
+          },
+          "hint": {
+            "type": "string"
           }
         },
         "required": [
@@ -955,6 +970,21 @@
           },
           "trustedEvents": {
             "type": "boolean"
+          },
+          "verified": {
+            "type": "boolean"
+          },
+          "effect": {
+            "type": "string",
+            "enum": [
+              "navigation",
+              "target_state_changed",
+              "dom_changed",
+              "no_visible_change"
+            ]
+          },
+          "hint": {
+            "type": "string"
           }
         },
         "required": [
@@ -1138,6 +1168,21 @@
             "type": "boolean"
           },
           "ref": {
+            "type": "string"
+          },
+          "verified": {
+            "type": "boolean"
+          },
+          "effect": {
+            "type": "string",
+            "enum": [
+              "navigation",
+              "target_state_changed",
+              "dom_changed",
+              "no_visible_change"
+            ]
+          },
+          "hint": {
             "type": "string"
           }
         },
@@ -2620,6 +2665,21 @@
           },
           "defaultPrevented": {
             "type": "boolean"
+          },
+          "verified": {
+            "type": "boolean"
+          },
+          "effect": {
+            "type": "string",
+            "enum": [
+              "navigation",
+              "target_state_changed",
+              "dom_changed",
+              "no_visible_change"
+            ]
+          },
+          "hint": {
+            "type": "string"
           }
         },
         "required": [
@@ -3222,6 +3282,21 @@
               "y",
               "maxX",
               "maxY"
+            ]
+          },
+          "container": {
+            "type": "object",
+            "properties": {
+              "ref": {
+                "type": "string"
+              },
+              "tag": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "ref",
+              "tag"
             ]
           }
         },

@@ -377,7 +377,11 @@ class Broker:
                 if str(self.device_info.get(device, {}).get('version', '')).startswith('companion-'):
                     validate_native_arguments(data['op'], data.get('args', {}))
                 else:
-                    validate_arguments(data['op'], data.get('args', {}))
+                    try:
+                        validate_arguments(data['op'], data.get('args', {}))
+                    except ValueError as error:
+                        # Rejected before queueing: nothing reached the browser.
+                        raise BrokerError('INVALID_ARGUMENT', str(error), 400) from None
                 active = [c for c in self.commands.values() if c['state'] in ('queued', 'dispatched')]
                 # _client is set by the authenticated HTTP handler, never trusted from the wire.
                 client = data.get('_client', 'local-admin')
@@ -563,7 +567,15 @@ def api(url, token, path, data, *, timeout=None):
             headers={'Authorization':'Bearer '+token,'Content-Type':'application/json'})
         response=connection.getresponse();body=response.read()
         cache[key]=(connection,time.monotonic())
-        if response.status>=400: raise RuntimeError(body.decode())
+        if response.status>=400:
+            text=body.decode()
+            try:detail=json.loads(text)
+            except ValueError:detail=None
+            # Surface the broker code first so agents can classify the failure (INVALID_ARGUMENT: ...).
+            if isinstance(detail,dict) and isinstance(detail.get('error'),str):
+                code=detail.get('code')
+                text=detail['error'] if not isinstance(code,str) or detail['error'].startswith(code+':') else code+': '+detail['error']
+            raise RuntimeError(text)
         return json.loads(body)
     except (OSError,http.client.HTTPException):
         connection.close();cache.pop(key,None)
