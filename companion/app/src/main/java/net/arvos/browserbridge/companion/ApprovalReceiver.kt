@@ -7,6 +7,6 @@ import android.content.Intent
 class ApprovalReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         val id = intent?.getStringExtra("id") ?: return
-        ConnectionState(context).decideApproval(id, intent.getBooleanExtra("approve", false))
+        ConnectionState(context).decideApproval(id, intent.getBooleanExtra("approve", false), intent.getBooleanExtra("session", false), intent.getBooleanExtra("always", false))
     }
 }

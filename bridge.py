@@ -17,6 +17,25 @@ from collections import defaultdict, deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from operation_registry import OPERATIONS, PRODUCT_VERSION, validate_arguments
+
+# The Android companion has its own fixed contract; the Firefox catalog stays unchanged.
+NATIVE_OPERATIONS = frozenset({'capabilities', 'read', 'locate', 'inspect', 'click', 'fill', 'back', 'scroll', 'foreground'})
+NATIVE_ARGUMENTS = {'package': str, 'ref': str, 'name': str, 'label': str, 'role': str, 'textQuery': str, 'exact': bool,
+    'value': str, 'force': bool, 'y': (int, float), 'textLimit': int, 'maxElements': int, 'selectors': bool, 'responseFields': list}
+NATIVE_PACKAGE = re.compile(r'[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+')
+
+
+def validate_native_arguments(operation, args):
+    if operation not in NATIVE_OPERATIONS:
+        raise ValueError('UNSUPPORTED_OPERATION: The native companion supports ' + ', '.join(sorted(NATIVE_OPERATIONS)))
+    for key, value in args.items():
+        kind = NATIVE_ARGUMENTS.get(key)
+        if kind is None or isinstance(value, bool) != (kind is bool) or not isinstance(value, kind):
+            raise ValueError('INVALID_ARGUMENT: ' + key + ' is not a native companion argument of the expected type')
+    if 'package' in args and (len(args['package']) > 255 or not NATIVE_PACKAGE.fullmatch(args['package'])):
+        raise ValueError('INVALID_ARGUMENT: package must be an exact Android package name')
+    if isinstance(args.get('value'), str) and len(args['value']) > 10000:
+        raise ValueError('INVALID_ARGUMENT: value exceeds 10000 characters')
 from action_store import ActionStore, ActionCapacityError, needs_durable_identity
 from client_auth import ClientCredentials
 
@@ -289,6 +308,20 @@ class Broker:
                 self.save_credentials()
                 self.changed.notify_all()
                 return {"ok": True}
+            if path == "/api/native-preflight":
+                supplied = data.get('_credential', '')
+                expected = self.credentials.get(device, '')
+                if not expected or not supplied or not hmac.compare_digest(expected, supplied):
+                    raise BrokerError('UNAUTHORIZED', 'Device authorization is no longer valid', 401)
+                identifier = data.get('id')
+                if not isinstance(identifier, str) or not identifier or len(identifier) > 128:
+                    raise BrokerError('INVALID_INPUT', 'A native command identifier is required', 400)
+                command = self.commands.get(identifier)
+                if not command or command['device'] != device or command['state'] != 'dispatched':
+                    raise BrokerError('COMMAND_NOT_AUTHORIZED', 'The native command is no longer authorized for this device', 403)
+                if command.get('scopedClient') and command['client'] not in {entry['clientId'] for entry in self.clients.list_clients()}:
+                    raise BrokerError('COMMAND_NOT_AUTHORIZED', 'The originating client has been revoked', 403)
+                return {'allowed': True}
             if path == "/api/poll":
                 if data.get("_credential") is not None:
                     expected=self.credentials.get(device, "")
@@ -341,7 +374,10 @@ class Broker:
                     if identity is not None:return identity
                 if now >= self.leases.get(device,self.devices.get(device,0)+15):
                     raise ValueError("Device offline; open Firefox and enable the extension")
-                validate_arguments(data['op'], data.get('args', {}))
+                if str(self.device_info.get(device, {}).get('version', '')).startswith('companion-'):
+                    validate_native_arguments(data['op'], data.get('args', {}))
+                else:
+                    validate_arguments(data['op'], data.get('args', {}))
                 active = [c for c in self.commands.values() if c['state'] in ('queued', 'dispatched')]
                 # _client is set by the authenticated HTTP handler, never trusted from the wire.
                 client = data.get('_client', 'local-admin')
@@ -454,7 +490,7 @@ def make_server(port, token, credentials_file=None, host="127.0.0.1"):
                         if key.startswith('_'):del data[key]
                     is_admin = hmac.compare_digest(auth.encode(), ("Bearer " + token).encode())
                     principal = None
-                    if self.path in ("/api/poll", "/api/result", "/api/native-share"):
+                    if self.path in ("/api/poll", "/api/result", "/api/native-share", "/api/native-preflight"):
                         authorized = broker.authorized_device(data.get("device", ""), auth.removeprefix("Bearer "))
                         if authorized: data['_credential']=auth.removeprefix('Bearer ')
                     else:

@@ -94,6 +94,37 @@ class BrokerSecurityTests(unittest.TestCase):
         self.broker.handle('/api/revoke', {'device': 'fixture'})
         self.assertEqual(self.request('/api/native-share', payload, 'test-device-credential')[0], 401)
 
+    def test_native_preflight_checks_device_dispatch_and_revocation(self):
+        identifier = self.command()
+        payload = {'device': 'fixture', 'id': identifier}
+        self.assertEqual(self.request('/api/native-preflight', {'device': 'fixture', 'id': []}, 'test-device-credential')[0], 400)
+        self.assertEqual(self.request('/api/native-preflight', payload)[0], 401)
+        self.assertEqual(self.request('/api/native-preflight', payload, 'test-device-credential')[0], 403)
+        self.broker.handle('/api/poll', {'device': 'fixture'})
+        status, value = self.request('/api/native-preflight', payload, 'test-device-credential')
+        self.assertEqual((status, value), (200, {'allowed': True}))
+        self.broker.credentials['other-device'] = 'other-device-credential'
+        self.assertEqual(self.request('/api/native-preflight', {'device': 'other-device', 'id': identifier}, 'other-device-credential')[0], 403)
+        self.broker.clients.revoke(self.owner['clientId'])
+        self.assertEqual(self.request('/api/native-preflight', payload, 'test-device-credential')[0], 403)
+        self.broker.handle('/api/revoke', {'device': 'fixture'})
+        self.assertEqual(self.request('/api/native-preflight', payload, 'test-device-credential')[0], 401)
+
+    def test_native_companion_uses_its_own_argument_contract(self):
+        self.broker.handle('/api/poll', {'device': 'fixture', 'version': 'companion-0.2.0-experimental', 'waitMs': 0})
+        def submit(op, args):
+            return self.request('/api/command', {'device': 'fixture', 'op': op, 'args': args})[0]
+        self.assertEqual(submit('click', {'package': 'org.mozilla.fenix', 'name': 'Tabs', 'force': True}), 200)
+        self.assertEqual(submit('foreground', {'package': 'com.example.mail'}), 200)
+        self.assertEqual(submit('read', {'textLimit': 2000, 'maxElements': 20, 'selectors': False, 'responseFields': ['accessibleName']}), 200)
+        self.assertNotEqual(submit('click', {'package': 'org.mozilla.fenix;rm'}), 200)
+        self.assertNotEqual(submit('click', {'selector': '#x', 'url': 'https://example.com'}), 200)
+        self.assertNotEqual(submit('navigate', {'url': 'https://example.com'}), 200)
+        self.assertNotEqual(submit('fill', {'name': 'x', 'value': 'v' * 10001}), 200)
+        # Firefox devices keep the extension catalog, which has no package argument.
+        self.broker.handle('/api/poll', {'device': 'fixture', 'version': '1.0.0', 'waitMs': 0})
+        self.assertNotEqual(submit('click', {'package': 'org.mozilla.fenix', 'name': 'Tabs'}), 200)
+
 
 class DurableStateTests(unittest.TestCase):
     def test_expired_lookup_not_confused_with_conflicting_live_identity(self):

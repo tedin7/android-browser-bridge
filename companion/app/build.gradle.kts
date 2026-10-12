@@ -6,8 +6,8 @@ android {
         applicationId = "net.arvos.browserbridge.companion"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.1.2-experimental"
+        versionCode = 8
+        versionName = "0.2.1-experimental"
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }

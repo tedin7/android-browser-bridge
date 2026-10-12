@@ -4,6 +4,25 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PolicyTest {
+    @Test fun approvedContextRequiresOriginalAllowedFocusAndLiveConsent() {
+        val allowed = setOf("org.mozilla.fenix")
+        fun ready(enabled: Boolean = true, same: Boolean = true, focus: String = "org.mozilla.fenix", now: Long = 1000, packages: Set<String> = allowed) =
+            Policy.approvedContext(enabled, same, packages, "org.mozilla.fenix", focus, "own.app", 30000, now)
+        assertTrue(ready())
+        assertFalse(ready(enabled = false))
+        assertFalse(ready(same = false))
+        assertFalse(ready(focus = "own.app"))
+        assertFalse(ready(focus = "com.android.systemui"))
+        assertFalse(ready(focus = "other.allowed", packages = allowed + "other.allowed"))
+        assertFalse(ready(packages = emptySet()))
+        assertFalse(ready(now = 30000))
+        assertFalse(ready(now = 30001))
+    }
+    @Test fun returnFocusNeverExtendsOriginalApprovalExpiry() {
+        assertEquals(15000L, Policy.focusDeadline(30000, 10000))
+        assertEquals(30000L, Policy.focusDeadline(30000, 29000))
+        assertEquals(30000L, Policy.focusDeadline(30000, 31000))
+    }
     @Test fun accessibleLabelSkipsEmptyDescriptions() {
         assertEquals("Click fixture", Policy.accessibleLabel("", "Click fixture", "hint"))
         assertEquals("Click fixture", Policy.accessibleLabel("  ", "Click fixture", null))
@@ -43,5 +62,45 @@ class PolicyTest {
         assertFalse("eval" in Policy.operations)
         assertFalse("shell" in Policy.operations)
         assertFalse("screenshot" in Policy.operations)
+    }
+    @Test fun permanentApprovalNeedsConsentAllowlistAndOwnerChoice() {
+        val allowed = setOf("org.mozilla.fenix", "com.example.mail")
+        assertTrue(Policy.alwaysApproves(true, allowed, setOf("org.mozilla.fenix"), "org.mozilla.fenix", "own.app"))
+        assertFalse(Policy.alwaysApproves(false, allowed, setOf("org.mozilla.fenix"), "org.mozilla.fenix", "own.app"))
+        assertFalse(Policy.alwaysApproves(true, allowed, setOf("org.mozilla.fenix"), "com.example.mail", "own.app"))
+        assertFalse(Policy.alwaysApproves(true, setOf("com.example.mail"), setOf("org.mozilla.fenix"), "org.mozilla.fenix", "own.app"))
+        assertFalse(Policy.alwaysApproves(true, setOf("own.app"), setOf("own.app"), "own.app", "own.app"))
+    }
+    @Test fun splitScreenVisibilityIsEnoughWithoutFocus() {
+        // The target is evaluated by its visible window, not by the focused pane.
+        assertTrue(Policy.approvedContext(true, true, setOf("org.mozilla.fenix"), "org.mozilla.fenix", "org.mozilla.fenix", "own.app", 2000, 1000))
+        assertFalse(Policy.approvedContext(true, true, setOf("org.mozilla.fenix"), "org.mozilla.fenix", "", "own.app", 2000, 1000))
+    }
+    @Test fun tapPointUsesVisibleCentreAndRefusesCoveredPoints() {
+        val window = Policy.Window(1, 5, Policy.Box(0, 0, 1000, 2000))
+        assertEquals(Pair(150, 60), Policy.tapPoint(Policy.Box(100, 40, 200, 80), window, listOf(window)))
+        // Partly off-window: centre of the visible part only.
+        assertEquals(Pair(950, 60), Policy.tapPoint(Policy.Box(900, 40, 1200, 80), window, listOf(window)))
+        assertNull(Policy.tapPoint(Policy.Box(1100, 40, 1200, 80), window, listOf(window)))
+        val shade = Policy.Window(2, 9, Policy.Box(0, 0, 1000, 300))
+        assertNull(Policy.tapPoint(Policy.Box(100, 40, 200, 80), window, listOf(window, shade)))
+        val below = Policy.Window(3, 1, Policy.Box(0, 0, 1000, 300))
+        assertEquals(Pair(150, 60), Policy.tapPoint(Policy.Box(100, 40, 200, 80), window, listOf(window, below)))
+    }
+    @Test fun verificationReportsObservableEvidenceOnly() {
+        val before = Policy.Observation("w1", "t1", "false:false", "old")
+        assertEquals(Policy.Verdict(true, "value_matches"), Policy.verify("fill", before, before.copy(targetText = "new"), "new"))
+        assertEquals(Policy.Verdict(false, "value_differs"), Policy.verify("fill", before, before, "new"))
+        assertEquals(Policy.Verdict(true, "window_changed"), Policy.verify("click", before, before.copy(windows = "w2"), null))
+        assertEquals(Policy.Verdict(true, "target_state_changed"), Policy.verify("click", before, before.copy(targetState = "true:false"), null))
+        assertEquals(Policy.Verdict(true, "screen_changed"), Policy.verify("scroll", before, before.copy(tree = "t2"), null))
+        assertEquals(Policy.Verdict(false, "no_visible_change"), Policy.verify("click", before, before, null))
+        assertEquals(Policy.Verdict(false, "observation_unavailable"), Policy.verify("click", before, null, null))
+    }
+    @Test fun foregroundIsTheOnlyNewOperation() {
+        assertEquals(setOf("capabilities", "read", "locate", "inspect", "click", "fill", "back", "scroll", "foreground"), Policy.operations)
+        assertFalse("foreground" in Policy.writes)
+        assertTrue(Policy.validPackage("org.mozilla.fenix"))
+        assertFalse(Policy.validPackage("org.mozilla.fenix;rm"))
     }
 }

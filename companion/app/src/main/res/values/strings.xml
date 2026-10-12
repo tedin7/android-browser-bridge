@@ -1,3 +1,3 @@
 <resources>
-    <string name="accessibility_description">Optional remote control of app controls you explicitly authorize. Your connected agent can read visible text and click or fill accessible controls in allowlisted apps while control is enabled. Password fields are excluded. Stop from Browser Bridge Companion at any time. Enable this service yourself in Android settings.</string>
+    <string name="accessibility_description">Optional remote control of apps you explicitly authorize. Your connected agent can read visible text, click, tap or fill accessible controls and open apps in your allowlist while control is enabled. Writes need your approval unless you chose Always approve for that app. Password fields are excluded. Stop from Browser Bridge Companion or its notification at any time.</string>
 </resources>

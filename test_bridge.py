@@ -190,7 +190,7 @@ class GuidanceTests(unittest.TestCase):
             result=local_android_foreground('tablet','http://127.0.0.1:8766')
             self.assertTrue(result['launchRequested']);self.assertFalse(result['verifiedVisible'])
             argv=launch.call_args.args[0]
-            self.assertEqual(argv,[ '/data/data/com.termux/files/usr/bin/am','start','--user','0','-a','android.intent.action.VIEW','-d','http://127.0.0.1:8766/health','-p','org.mozilla.fenix'])
+            self.assertEqual(argv,[ '/data/data/com.termux/files/usr/bin/am','start','--user','0','--activity-reorder-to-front','-n','org.mozilla.fenix/org.mozilla.fenix.App'])
             self.assertNotIn('shell',launch.call_args.kwargs)
         with patch.dict(os.environ,{**environment,'BROWSER_BRIDGE_ANDROID_PACKAGE':'org.mozilla.fenix;bad'},clear=False),patch('mcp_guidance.subprocess.run') as launch:
             with self.assertRaises(ValueError):local_android_foreground('tablet','http://localhost:8766')

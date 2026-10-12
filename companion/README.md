@@ -11,10 +11,32 @@ release candidate are available locally. Release unit tests, lint, APK signature
 verification and physical-device runtime are separate gates; see the local build
 verification records. On the physical tablet, version 0.1.1 pairing, capabilities,
 foreground-package diagnostics and an allowed Firefox native read succeeded.
-A write attempt expired waiting for approval and reported `APPROVAL_REQUIRED`
-with `actionMayHaveOccurred:false`; no successful native write is claimed.
-The 0.1.2 label fix has not yet been verified on the tablet. No marketplace
-publication is claimed. This is an experimental optional component.
+Version 0.1.2 semantic name lookup succeeded. On version 0.1.3, a locally approved
+native click succeeded; the Firefox extension independently verified the fixture
+counter changing from 2 to 3. Earlier unapproved requests expired without action.
+Version 0.1.4 session approval was verified with two subsequent native clicks
+without another approval prompt (176 ms and 173 ms); the Firefox DOM independently
+confirmed counter changes 4→5→6. These are two observed operations, not a full
+benchmark. No marketplace publication is claimed. This is an experimental optional component.
+
+### Version 0.2.x behaviour
+
+- **Apps screen:** pick the apps the server may use (*Allow*) and, per app, *Always*
+  to approve writes permanently. Permanent approval is stored on the device, survives
+  STOP and restarts, and can only be changed in this app (never through MCP).
+  Without it, each write asks once / 10 minutes / always via notification.
+- **Which window:** `args.package` if given, else the focused allowed app, else the
+  only visible allowed app. Split screen with a focused terminal works.
+- **Automatic foreground:** an allowed app that is not on screen is opened with its
+  launcher intent. The `foreground` operation does this explicitly.
+- **Tap fallback:** controls without a clickable ancestor (or `force:true`) are tapped
+  at their visible centre unless another window covers that point.
+- **Verification:** writes return `verified` and `effect` from comparing the screen
+  before and after (500 ms). `verified:false` means no visible change was observed;
+  read before repeating.
+- **Operations:** capabilities, read, locate, inspect, click, fill, scroll, back,
+  foreground. Arguments: package, ref, name, label, role, textQuery, exact, value, force,
+  y, textLimit, maxElements.
 
 ## Build and verification
 
@@ -49,11 +71,11 @@ Android debug certificate. Public APK and certificate SHA-256 fingerprints are
 recorded alongside the local artifact. This is a signed candidate, not proof of
 Android runtime validation or a store release.
 
-Verified candidate `browser-bridge-companion-0.1.2-release.apk` (656,792 bytes):
+Verified candidate `browser-bridge-companion-0.1.5-release.apk` (669,080 bytes):
 
-- APK SHA-256: `db6f8531f38d6f610985270696161706d261f729ce19132df757dddc4e0a0a4a`
+- APK SHA-256: `899f83e9aa1790cb04533fdace490efb5b9964de4774f4266399c8f719307a4e`
 - Publisher certificate SHA-256: `ffdfbb15acdfbb73abc91c0ee3f95073e14adf3446ac0bd18a80001940f9b5a6`
-- APK signature v2 verified; manifest is not debuggable; all six release unit tests and
+- APK signature v2 verified; manifest is not debuggable; all nineteen release unit tests and
   release lint passed. This candidate's Android runtime remains unverified.
 
 Keep the keystore and its password outside the checkout with owner-only access.
@@ -72,7 +94,7 @@ an existing installation or assume that its data transfers across signing keys.
 
 ## Updating an existing publisher-signed installation
 
-Version 0.1.2 uses `versionCode=3` and the same publisher certificate as 0.1.0/0.1.1.
+Version 0.1.5 uses `versionCode=6` and the same publisher certificate as earlier release candidates.
 Install it as a normal update; **do not uninstall or clear app data**. Existing
 pairing and the exact package allowlist are retained. Check the permission status
 shown in the app and explicitly enable control again if Android stopped the
@@ -94,6 +116,79 @@ Unchecking consent immediately stops control and clears pending approval. The UI
 reports Android's service-enabled status and notification permission independently
 from the broker connection; Enable explains which permission is missing.
 
+### Version 0.1.3 approval visibility and focus
+
+STOP remains on a persistent control notification. One-use approvals use a
+separate high-importance **One-use action approvals** notification channel with
+Approve once / This app: 10 min / STOP actions (Deny remains in companion details). Android can still suppress heads-up display (for
+example under Do Not Disturb); companion details show the same pending request
+and countdown. The app checks global notifications and both channels. If a
+channel is blocked, the status identifies it; the notification settings button
+opens Android settings when notification permission is already granted.
+
+Authorization still expires 30 seconds after the request. Approve early, then
+return immediately to the originally approved allowed app. The runtime samples
+the active package on the main thread for up to five seconds after approval,
+without extending the original expiry. It does not launch apps, choose background
+windows, or replay actions. Approved details remain visible until the request
+finishes. STOP, denied approval, changed connection, expired approval, removed
+allowlist membership or missing original focus prevents execution.
+
+After approval and focus recovery, the companion calls the authenticated
+`/api/native-preflight` endpoint with the device and pending command ID. A rejected
+or unavailable check fails closed before action. The broker must support this
+endpoint; upgrade it before installing 0.1.3. Local authorization, connection,
+expiry and focus are checked again immediately before execution. Revocation after
+that last broker check still has an unavoidable race; this is not a claim of
+instantaneous revocation or exactly-once application effects.
+
+### Version 0.1.4: approve one app session
+
+For a pending write, explicitly select **Approve this app for 10 minutes** in the
+companion, or **This app: 10 min** in its notification. That local gesture permits
+subsequent fixed native writes only in the pending request's exact app package
+and current connection, for ten minutes. It does not add packages to the allowlist
+or grant control of this companion or Android system UI. MCP cannot grant this
+session. **Approve once** remains available; **Deny this action** remains in the app.
+
+The session lives only in process memory and expires using Android's monotonic
+elapsed-realtime clock. STOP, withdrawing consent, changed allowlist, connection
+replacement, detected broker authorization rejection, explicit **Revoke app session
+approval**, expiry or process restart discards it. The UI shows the package and
+remaining duration. Each write still requires current allowed-app focus, existing
+node/permission checks and broker preflight; failures never replay the action.
+
+After the local session-approval button is pressed, the companion tries to resume
+only that pending app through Android's own package launcher. This is tied to the
+explicit user gesture, not a remote launch command. If Android provides no launcher
+or refuses the transition, return manually immediately. The original request's
+30-second deadline and five-second focus-return bound still apply. Notification
+approval does not launch anything. A session does not keep commands alive, extend
+node references, bypass stale-ref checks, or promise instantaneous remote revocation.
+
+### Version 0.1.5: composed controls
+
+Empty clickable/checkable container names can be derived from visible non-password
+descendant labels within the same package and window. Traversal is bounded to
+32 descendants, depth three and 512 characters. Derived names can match both a
+container and a child: disambiguate with observed role/ref rather than guessing.
+
+Clicking a uniquely selected non-clickable leaf resolves its nearest clickable
+ancestor, at most four levels up. Every node along that path must remain visible,
+enabled, non-password, and in the same authorized package/window. The leaf and
+resolved target are refreshed, semantic fingerprints rechecked, and the ancestor
+path resolved again before action. Results indicate `resolvedAncestor` and
+`ancestorDepth`; unsuccessful resolution gives `TARGET_NOT_ACTIONABLE` without an
+action. A platform action returning false is reported separately and requires
+inspection before retry. Zero matches return `TARGET_NOT_FOUND`, distinct from
+`TARGET_NOT_UNIQUE`.
+
+Descriptors include bounded screen `rect` and `checked` for checkable controls.
+Capabilities expose session `active`, `targetPackage` and `remainingSeconds`,
+without connection identifiers. Android manifest visibility is limited to normal
+MAIN/LAUNCHER activities so the explicit local approval gesture can find app
+launchers; no `QUERY_ALL_PACKAGES` permission or remote-launch operation is added.
+
 ## Explicit installation and pairing
 
 1. Install the locally built APK using Android's installer.
@@ -113,8 +208,9 @@ from the broker connection; Enable explains which permission is missing.
    allowed target app yourself; this version has no remote app-launch operation.
 7. Call `browser_devices`, select the new native device ID explicitly and inspect
    its `capabilities` before issuing native commands.
-8. Each native write requires your one-use approval from the notification or
-   companion details screen. Approve/deny expires after 30 seconds. STOP, revoked
+8. A native write requires one-use approval or an active, locally granted
+   ten-minute session for that exact app and connection. Pending approval
+   expires after 30 seconds. STOP, revoked
    consent, a changed app, or a replaced connection prevents the action. Opening
    the details screen may invalidate a node ref; in that case the agent must
    observe again, rather than rebinding a stale ref silently.
@@ -166,8 +262,8 @@ in app-private preferences until delivery. It is cleared after delivery or a
 terminal rejection. Stopping disables new actions; a stored result may still be
 delivered to reconcile an action that already occurred.
 
-The current app supports one broker connection, a package allowlist, per-action
-approval and explicit sharing. It does **not** capture the screen, launch apps
+The current app supports one broker connection, a package allowlist, one-use
+or scoped app-session approval and explicit sharing. It does **not** capture the screen, launch apps
 remotely, run a shell, execute JavaScript or provide durable multi-step native
 workflows. Those remain separate future capabilities.
 

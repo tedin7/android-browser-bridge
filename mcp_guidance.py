@@ -70,7 +70,7 @@ def local_android_foreground(device, origin):
         raise ValueError('Local Android helper requires a loopback broker URL')
     executable=Path('/data/data/com.termux/files/usr/bin/am')
     if not executable.is_file():return {'available':False,'reason':'The Linux host has no local Android activity launcher.'}
-    response=subprocess.run([str(executable),'start','--user','0','-a','android.intent.action.VIEW','-d',origin.rstrip('/')+'/health','-p',package],capture_output=True,text=True,timeout=10)
+    response=subprocess.run([str(executable),'start','--user','0','--activity-reorder-to-front','-n',package+'/'+package+'.App'],capture_output=True,text=True,timeout=10)
     combined=response.stdout+response.stderr
     if response.returncode or 'Error:' in combined:raise RuntimeError('ANDROID_FOREGROUND_FAILED: Android did not accept the Firefox launch; open Firefox manually.')
     return {'available':True,'launchRequested':True,'package':package,'verifiedVisible':False}

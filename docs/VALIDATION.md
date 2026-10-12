@@ -125,8 +125,8 @@ submission or signing has been performed by this validation run.
 
 - Android suspension and changing networks remain device-dependent. The project
   has no verified 24/7 guarantee or completed multi-network endurance test.
-- Mozilla authentication, signing and marketplace review remain pending; current
-  development artifacts are unsigned and require the documented Nightly setup.
+- Mozilla signing of extension 1.0.0 for **unlisted** distribution is complete
+  (see below). Listed marketplace publication and review remain pending.
 - The installed extension has no automatic-update bootstrap configured. A future
   `update_url` would require installing a version that declares it first; it
   cannot make the currently installed build update retroactively.
@@ -362,3 +362,97 @@ passed with no failures, errors or skips; lint and release compilation passed.
 APK v2 signing and non-debuggable status were verified, using the same signing
 certificate. The APK is ready in Android Downloads; installation and physical
 verification of this label fix remain pending.
+
+
+### Physical companion 0.1.3 approved write
+
+After a user-confirmed update to companion 0.1.3, capabilities reported
+`0.1.3-experimental`. The approved native `Click fixture` action returned
+`executed:true, verified:false`. An independent Firefox DOM read on the owned
+fixture confirmed `clicks:2` before and `clicks:3` after, establishing one actual
+effect. Earlier attempts returned no-action errors for changed focus or missing
+controls; none was treated as successful or replayed while uncertain.
+
+The companion also physically read the signed-in Mozilla developer agreement
+page through Android Accessibility, despite Firefox's protected-domain DOM
+restriction. This establishes native observation of that page, not submission,
+acceptance of the agreement, API authentication or Mozilla signing.
+
+A new authenticated native preflight endpoint checks a device-bound dispatched
+command and originating-client validity before an approved write. Eleven focused
+broker security/fixture tests passed, including wrong-device, queued command and
+revocation rejection. The local broker was backed up while stopped and upgraded
+before companion 0.1.3 verification. This check does not promise atomicity between
+a server-side revocation and a later Android UI effect.
+
+
+### User-requested native session approval candidate
+
+Companion 0.1.4 adds a local user choice to approve an exact app and broker
+connection for ten minutes. The grant uses monotonic time and process memory;
+STOP, consent withdrawal, allowlist change, connection replacement, revocation,
+expiry and process restart invalidate it. Each write still passes broker
+preflight and final context checks; no MCP operation can grant this approval.
+The local button attempts returning to the approved app using its own launcher.
+Thirteen JVM tests passed (eight policy and five session tests), along with lint,
+release compilation, APK v2 verification and non-debuggable manifest checks.
+The APK keeps the publisher certificate and increments versionCode to 5.
+Physical 0.1.4 installation is now confirmed. After local session approval, two consecutive native fixture clicks completed without new approval prompts (single call samples 176 and 173 ms). Independent Firefox DOM evidence showed clicks:4, then clicks:5 and clicks:6. These are focused functional samples, not a latency benchmark. The earlier 0.1.3 single-write result remains separately recorded.
+
+
+The local Android foreground helper previously launched the broker health URL
+through a package-scoped VIEW intent. On this split-screen tablet that did not
+reliably transfer Android input focus. An explicit fixed Firefox launcher alias
+with activity reorder-to-front succeeded; native capabilities then reported
+`org.mozilla.fenix`. The helper now uses that alias for the same three whitelisted
+Firefox packages and preserves the selected browser tab. Twenty MCP/helper
+regression tests passed. Android activity launch acceptance still does not by
+itself prove foreground focus on every device.
+
+
+### Mozilla unlisted signing of extension 1.0.0
+
+Extension 1.0.0 (id `android-browser-bridge@local.invalid`) was signed by Mozilla
+for unlisted distribution; the signed XPI contains Mozilla signature files. This
+is not a listed marketplace publication. The signed file is a private release
+artifact and is not committed.
+
+### Companion 0.2.x: owner-chosen permanent approval, split screen, tap fallback, verification
+
+Companion 0.2.0/0.2.1 changes, all local to the owner's device:
+
+- **Permanent per-app approval.** The app lists launchable apps with *Allow* and
+  *Always* switches. *Always* (also offered on the approval notification) skips the
+  approval prompt for that allowed app; it persists across STOP and restarts, but
+  STOP still halts all control and writes still pass broker preflight. It cannot be
+  granted or changed through MCP.
+- **Target selection without focus.** With `flagRetrieveInteractiveWindows`, the
+  target is `args.package`, else the focused allowed app, else the single visible
+  allowed app. In split screen a focused terminal no longer blocks Firefox actions.
+  `back` still requires real focus and the companion requests it.
+- **Automatic foreground.** If the target app is not on screen, the companion opens
+  it with its launcher intent (allowed apps only) and waits up to 4 s. A new
+  `foreground` native operation does the same explicitly.
+- **Tap fallback.** A matched control without a safe clickable ancestor (or with
+  `force:true`) is tapped at the centre of its visible part with an accessibility
+  gesture, refused when a higher window covers that point; failures report the reason.
+- **Post-action verification.** After a write the companion compares the window list,
+  the target window tree and the target node with evidence taken just before the action.
+  `verified:true` with `effect` (`value_matches`, `window_changed`,
+  `target_state_changed`, `screen_changed`) reports an observed change; it is not a
+  claim about application semantics.
+
+The broker validates native-device arguments (including `package`) with a separate
+native contract, leaving the Firefox catalog and the signed extension unchanged.
+
+Physical results on the OnePlus Pad 3 with 0.2.0: an MCP read with
+`package: org.mozilla.fenix` while another app was in front launched Firefox and
+returned its controls (`autoForeground.launched:true`, 424 ms). With *Always* set for
+Firefox, a native click on the tab strip label switched tabs without an approval
+prompt and returned `verified:true, effect:screen_changed`; the Firefox extension
+independently reported the new active tab. A forced screen tap on another tab
+label was refused with `tap_point_unavailable` (fail-closed); 0.2.1 adds the
+refusal diagnostics. Companion 0.2.1 also fixes the in-app Accessibility indicator
+on ColorOS, which omitted the running service from the manager list. Release builds
+passed 24 JVM tests and lint and were signed with the same publisher certificate.
+

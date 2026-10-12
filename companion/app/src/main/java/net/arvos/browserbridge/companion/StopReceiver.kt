@@ -7,7 +7,7 @@ import android.content.Intent
 
 class StopReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
-        ConnectionState(context).apply { enabled = false; status = "Stopped locally" }
-        context.getSystemService(NotificationManager::class.java).cancel(1)
+        ConnectionState(context).apply { enabled = false; approval = null; status = "Stopped locally" }
+        ControlNotifications.cancel(context.getSystemService(NotificationManager::class.java))
     }
 }

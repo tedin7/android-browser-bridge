@@ -7,14 +7,14 @@ import org.json.JSONObject
 class HttpFailure(val status: Int, val code: String) : Exception("Broker HTTP $status: $code")
 
 object BrokerTransport {
-    fun request(origin: String, path: String, body: JSONObject, token: String? = null): JSONObject {
-        require(path in setOf("/api/pair", "/api/poll", "/api/result", "/api/native-share"))
+    fun request(origin: String, path: String, body: JSONObject, token: String? = null, timeoutMs: Int? = null): JSONObject {
+        require(path in setOf("/api/pair", "/api/poll", "/api/result", "/api/native-share", "/api/native-preflight"))
         val connection = URL(Policy.origin(origin) + path).openConnection() as HttpURLConnection
         try {
             connection.requestMethod = "POST"
             connection.instanceFollowRedirects = false // Never forward credentials to a redirect target.
-            connection.connectTimeout = 5000
-            connection.readTimeout = 25000
+            connection.connectTimeout = timeoutMs?.coerceIn(1, 5000) ?: 5000
+            connection.readTimeout = timeoutMs?.coerceIn(1, 25000) ?: 25000
             connection.setRequestProperty("Content-Type", "application/json")
             if (token != null) connection.setRequestProperty("Authorization", "Bearer $token")
             connection.doOutput = true

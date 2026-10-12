@@ -106,3 +106,29 @@ Preparation opens only its own fixture tabs and records them privately; verifica
 Local validation: `python3 -m unittest -q test_benchmark_fixture test_release_gate`. These exercise actual loopback HTTP response loss, independent state checks for all four scenarios, source drift, cleanup ownership and full configuration generation; browser operations are replaced by an owned fake in this suite. No paid Codex/Claude episode or real tablet action was performed to produce this validation.
 
 The bundled Codex launch shape was checked against installed `codex exec --help` and the [official CLI reference](https://learn.chatgpt.com/docs/developer-commands?surface=cli); Claude flags were checked against the installed CLI help. Paid client behavior has not been exercised by these tests. Authentication and model access must already work in the chosen environment.
+
+## Two revisions on one Android Firefox installation
+
+A baseline can coexist with the candidate as a separately installed test add-on.
+Create a detached worktree at the historical baseline commit. Change only
+`manifest.json`'s display name and `browser_specific_settings.gecko.id` to a
+unique benchmark identity, then package its unchanged extension sources. Enroll
+a separate browser device ID for it. Do not copy the candidate's pairing secrets
+into it or overwrite the candidate add-on.
+
+The setup fingerprints this modified baseline checkout, including its manifest,
+and still requires the actual historical extension version. Record the original
+commit and the two manifest-only changes in the benchmark report. This is a
+baseline with an isolated add-on identity, not an unmodified signed release.
+Both add-ons share Firefox's tabs and page sessions; episode-owned tabs and
+sequential execution remain required. A distinct add-on identity is not a
+separate Android browser profile. Installation and opt-in pairing are real
+Firefox steps; preparing the XPI alone is not readiness for a paid run.
+
+The original baseline commit used for the current candidate is
+`6a3544387743049411c06de29391b67f5f9cdaef` (extension and MCP 0.3.1). The prepared
+local baseline uses add-on ID
+`android-browser-bridge-benchmark-baseline@local.invalid` and display name
+`Browser Bridge benchmark baseline`. These changes preserve the old browser
+engine and prevent replacement of the user's 1.0.0 installation. No completed
+baseline/candidate matrix is claimed by this preparation.
