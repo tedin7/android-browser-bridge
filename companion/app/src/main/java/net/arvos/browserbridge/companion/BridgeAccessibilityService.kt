@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 class BridgeAccessibilityService : AccessibilityService() {
     companion object {
-        const val VERSION = "0.2.1-experimental"
+        const val VERSION = "0.2.2-experimental"
         /** True while Android has this service bound in this process; the most direct evidence it is enabled. */
         val connected = AtomicBoolean(false)
     }
@@ -373,6 +373,24 @@ class BridgeAccessibilityService : AccessibilityService() {
         result.put("nextSteps", JSONArray().put(if (verdict.verified) "Read the app only if the task needs its new content" else "No visible change was observed. Read the app before deciding whether to repeat; the action may have had a delayed or invisible effect"))
         return result
     }
+    /** Nodes of a higher window that contain [point]; null when the tree is unreadable or too large. */
+    private fun contentAt(window: AccessibilityWindowInfo, point: Pair<Int, Int>): List<Policy.Content>? {
+        val root = window.root ?: return null
+        val found = mutableListOf<Policy.Content>()
+        val queue = ArrayDeque(listOf(root))
+        var seen = 0
+        while (queue.isNotEmpty()) {
+            if (++seen > 3000) return null
+            val node = queue.removeFirst()
+            val bounds = Rect(); node.getBoundsInScreen(bounds)
+            val box = box(bounds)
+            if (box.contains(point.first, point.second)) found += Policy.Content(box, node.isVisibleToUser,
+                node.isClickable || node.isLongClickable || node.isFocusable || node.isEditable || node.isCheckable,
+                !node.text.isNullOrBlank() || !node.contentDescription.isNullOrBlank())
+            for (index in 0 until node.childCount) node.getChild(index)?.let(queue::addLast)
+        }
+        return found
+    }
     /** Returns the tapped point, or fills [problem] with why no tap was sent. */
     private fun tap(node: AccessibilityNodeInfo, window: AccessibilityWindowInfo?, problem: JSONObject): Pair<Int, Int>? {
         if (window == null) { problem.put("reason", "target_window_unknown"); return null }
@@ -381,6 +399,7 @@ class BridgeAccessibilityService : AccessibilityService() {
         val point = Policy.tapCentre(box(bounds), target) ?: run { problem.put("reason", "off_window"); return null }
         val all = allWindows()
         val covering = Policy.covering(point, target, all.map { Policy.Window(it.id, it.layer, windowBox(it)) })
+            .filter { cover -> Policy.blocks(point, contentAt(all.first { it.id == cover.id }, point)) }
         if (covering.isNotEmpty()) {
             problem.put("reason", "covered").put("coveringWindows", JSONArray(covering.map { cover ->
                 val info = all.first { it.id == cover.id }

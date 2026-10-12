@@ -87,6 +87,20 @@ class PolicyTest {
         val below = Policy.Window(3, 1, Policy.Box(0, 0, 1000, 300))
         assertEquals(Pair(150, 60), Policy.tapPoint(Policy.Box(100, 40, 200, 80), window, listOf(window, below)))
     }
+    @Test fun onlyHigherWindowsShowingContentAtThePointBlockTaps() {
+        val point = Pair(150, 60)
+        // OnePlus Open Canvas: a full-screen host window with an empty, unlabelled root.
+        assertFalse(Policy.blocks(point, listOf(Policy.Content(Policy.Box(0, 0, 3392, 2400), true, false, false))))
+        assertFalse(Policy.blocks(point, emptyList()))
+        // Its drag handle elsewhere does not block this point.
+        assertFalse(Policy.blocks(point, listOf(Policy.Content(Policy.Box(1600, 0, 1800, 40), true, true, true))))
+        // A dialog button or labelled text at the point blocks; invisible nodes do not.
+        assertTrue(Policy.blocks(point, listOf(Policy.Content(Policy.Box(100, 40, 200, 80), true, true, false))))
+        assertTrue(Policy.blocks(point, listOf(Policy.Content(Policy.Box(0, 0, 1000, 300), true, false, true))))
+        assertFalse(Policy.blocks(point, listOf(Policy.Content(Policy.Box(0, 0, 1000, 300), false, true, true))))
+        // An unreadable window still blocks.
+        assertTrue(Policy.blocks(point, null))
+    }
     @Test fun verificationReportsObservableEvidenceOnly() {
         val before = Policy.Observation("w1", "t1", "false:false", "old")
         assertEquals(Policy.Verdict(true, "value_matches"), Policy.verify("fill", before, before.copy(targetText = "new"), "new"))

@@ -56,6 +56,15 @@ object Policy {
     }
     fun covering(point: Pair<Int, Int>, target: Window, others: List<Window>): List<Window> =
         others.filter { it.id != target.id && it.layer > target.layer && it.bounds.contains(point.first, point.second) }
+    /** One node of a higher window's accessibility tree, reduced to what decides occlusion. */
+    data class Content(val bounds: Box, val visible: Boolean, val interactive: Boolean, val labelled: Boolean)
+    /**
+     * A higher window blocks a tap only when it shows something at that point. Transparent
+     * full-screen hosts such as OnePlus Open Canvas expose no labelled or interactive node there;
+     * a dialog, shade, keyboard or bubble does. A window whose tree cannot be read still blocks.
+     */
+    fun blocks(point: Pair<Int, Int>, nodes: List<Content>?): Boolean =
+        nodes == null || nodes.any { it.visible && (it.interactive || it.labelled) && it.bounds.contains(point.first, point.second) }
     /**
      * Tap point for a control without a clickable ancestor: the centre of the part of the
      * control inside its own window, refused when any higher window covers that point.

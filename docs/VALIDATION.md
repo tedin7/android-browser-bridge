@@ -526,3 +526,18 @@ clicks, an inner `intoView` case and an app-shell page; it passed together with 
 Node and Python suites and web-ext lint (0 errors, 0 warnings). Version 1.0.2 is
 Mozilla-signed for unlisted distribution
 (`ee57848410b94cbe8c82-1.0.2.xpi`, SHA-256 `bd9f26c3…0a48b05`).
+
+### Companion 0.2.2: taps through transparent Open Canvas windows
+
+On the OnePlus Pad 3 in split screen, OnePlus Open Canvas keeps a full-screen
+`com.oplus.pscanvas` window above every app. The companion counted it as covering
+every tap point and refused all gesture taps (`tap_point_unavailable`, reason
+`covered`). A higher window now blocks a tap only when its accessibility tree shows
+a visible labelled or interactive node at that point; a dialog, shade, keyboard or
+bubble still blocks, and a window whose tree cannot be read (or exceeds 3000 nodes)
+still blocks. On the tablet, `force:true` taps then opened Search Console's URL
+filter menu, which had reported `no_visible_change` to the extension's synthetic
+click (extension 1.0.2 on the device). The MCP rules now say to retry such a control
+through the companion with `args.force:true`. Unit tests (25) and lint passed; the
+APK is signed with the existing publisher certificate (versionCode 9, SHA-256
+`31550cb6…cf414b`).
