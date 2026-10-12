@@ -1,8 +1,8 @@
 /* Resident fixed-operation engine. No remotely supplied scripts or expressions. */
 (() => {
-  if (globalThis.__browserBridgePageVersion === "1.0.0") return;
+  if (globalThis.__browserBridgePageVersion === "1.0.1") return;
   if (globalThis.__browserBridgePageListener) browser.runtime.onMessage.removeListener(globalThis.__browserBridgePageListener);
-  const engineVersion = "1.0.0";
+  const engineVersion = "1.0.1";
   globalThis.__browserBridgePageVersion = engineVersion;
   const epoch = Math.random().toString(36).slice(2, 10);
   let nextRef = 0;
@@ -129,7 +129,7 @@
     const own = parts.join(" > ");
     return root.host ? selectorFor(root.host, siblingCache) + " >>> " + own : own;
   }
-  const descriptorFields = new Set(["ref", "tag", "role", "accessibleName", "text", "visible", "enabled", "rect", "selector", "type", "name", "href", "checked"]);
+  const descriptorFields = new Set(["ref", "tag", "role", "accessibleName", "text", "visible", "enabled", "rect", "selector", "type", "name", "href", "checked", "options"]);
   function selectedResponseFields(args) {
     if (args.responseFields === undefined) return null;
     if (!Array.isArray(args.responseFields) || args.responseFields.length > descriptorFields.size || args.responseFields.some(field => typeof field !== "string" || !descriptorFields.has(field))) fail("INVALID_ARGUMENT", "responseFields must contain known element descriptor fields");
@@ -151,6 +151,15 @@
     if (wants("name") && el.name) result.name = el.name;
     if (wants("href") && el.href) result.href = el.getAttribute("href");
     if (wants("checked") && typeof el.checked === "boolean") result.checked = el.checked;
+    // Select options travel with the control (requested via type or options) so agents need no extra inspect turn.
+    if (el.tagName === "SELECT" && el.options && (wants("type") || (fields !== null && fields.has("options")))) {
+      const options = [...el.options];
+      result.options = options.slice(0, 25).map(option => {
+        const text = option.text.trim().slice(0, 80);
+        return text === option.value && !option.disabled && !option.selected ? option.value : {value: option.value, ...(text !== option.value ? {text} : {}), ...(option.selected ? {selected: true} : {}), ...(option.disabled ? {disabled: true} : {})};
+      });
+      if (options.length > 25) result.optionsTruncated = true;
+    }
     return result;
   }
   function viewportInfo() {

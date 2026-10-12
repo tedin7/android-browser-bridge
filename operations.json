@@ -1,6 +1,6 @@
 {
   "registryVersion": 1,
-  "productVersion": "1.0.0",
+  "productVersion": "1.0.1",
   "operations": {
     "activate": {
       "engine": "background",

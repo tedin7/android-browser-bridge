@@ -456,3 +456,14 @@ refusal diagnostics. Companion 0.2.1 also fixes the in-app Accessibility indicat
 on ColorOS, which omitted the running service from the manager list. Release builds
 passed 24 JVM tests and lint and were signed with the same publisher certificate.
 
+
+### Extension 1.0.1: select options in read/locate
+
+Read and locate now include a select control's options (value, text when it differs,
+selected/disabled flags; at most 25, then `optionsTruncated`) whenever the `type` field
+is returned, which the compact MCP defaults already request. `options` is also an
+explicit descriptor field. An observed Claude form episode spent a separate inspect
+turn only to discover option values; this removes that turn without any MCP change,
+so a newer MCP still works with extension 1.0.0. Node suites, the new
+`test_select_options.js` and web-ext lint (0 errors, 0 warnings) passed. Version 1.0.1
+is Mozilla-signed for unlisted distribution; installation on the tablet is pending.

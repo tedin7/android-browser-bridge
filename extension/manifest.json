@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Android Browser Bridge",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Control your own browser from your Linux terminal, without ADB.",
   "permissions": [
     "storage",
