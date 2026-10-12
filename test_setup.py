@@ -283,6 +283,30 @@ class PersistentBootstrapTests(unittest.TestCase):
             finally:client.close()
             self.assertTrue(install._probe_profile(profile));self.assertIsNone(owners[0].poll())
 
+    def test_custom_connection_filename_bootstraps_and_reuses_private_owner(self):
+        from connection import load_connection
+        with self.isolated() as (install,target,args,owners,state):
+            selected=state/'custom private profile.json'
+            with patch.dict(os.environ,{'BROWSER_BRIDGE_CONNECTION_FILE':str(selected)}):
+                path=install.ensure_persistent_broker(target,args)
+                self.assertEqual(path,selected.resolve())
+                profile=load_connection(path)
+                self.assertTrue(install._probe_profile(profile))
+                self.assertEqual(path.stat().st_mode&0o777,0o600)
+                self.assertEqual(profile,load_connection(selected.parent/'connection.json'))
+                self.assertEqual(install.ensure_persistent_broker(target,args,path),path)
+                self.assertEqual(len(owners),1)
+                selected.unlink()
+                self.assertEqual(install.ensure_persistent_broker(target,args),path)
+                self.assertEqual(load_connection(path),profile)
+                self.assertEqual(len(owners),1)
+                owners[0].terminate();owners[0].wait(timeout=5)
+                self.assertEqual(install.ensure_persistent_broker(target,args,path),path)
+                self.assertEqual(load_connection(path),profile)
+                self.assertEqual(len(owners),2)
+                self.assertTrue(install._probe_profile(profile))
+            self.assertFalse((state/'android-browser-bridge').exists())
+
     def test_two_concurrent_cold_installers_start_exactly_one_owner(self):
         from connection import load_connection
         with self.isolated() as (install,target,args,owners,state),ThreadPoolExecutor(max_workers=2) as pool:

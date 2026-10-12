@@ -136,3 +136,38 @@ submission or signing has been performed by this validation run.
   Installation and upgrades currently require the documented user steps.
 - Internal browser pages, native Android UI and closed shadow roots remain
   outside the supported page-operation surface. Some sites require trusted events.
+
+
+## Remote Codex automatic installation and intent routing (2026-10-12)
+
+A real Codex CLI session on the owned SSH host `arvos-next` cloned public main
+`8c8dcad` and ran `python3 install.py --codex`. Its prompt contained only the
+repository and installation instructions, with no broker URL, credential path
+or device ID. The installer migrated the existing authorized connection,
+registered MCP 0.2.4 and installed the skill/global instructions while preserving
+unrelated MCP servers and instructions. This tests reuse of an authorized
+connection, not first authorization of an unknown machine.
+
+Two subsequent fresh Codex sessions received natural browser requests in Italian
+and English. Both selected `android-browser` automatically, opened example.org,
+read "Example Domain" and closed only their newly created tab. This is observed
+behavior for these sessions, not a guarantee for every model or language.
+
+The remote installed client then operated a disposable fixture in actual Android
+Firefox through the existing encrypted SSH forward. Twelve samples per operation:
+
+| Operation | Median ms | p95 ms |
+| --- | ---: | ---: |
+| tabs | 136.65 | 182.27 |
+| read | 147.35 | 307.46 |
+| click | 128.42 | 143.35 |
+| fill | 117.55 | 313.14 |
+
+A tablet-local MCP independently verified the remote fill and exactly twelve
+clicks in the same fixture. Only the created fixture tab was closed afterwards.
+These measure persistent MCP operation latency, excluding model thinking, startup
+and website navigation. This connection depends on the running SSH forward;
+network-independent or permanent availability was not established.
+
+Final regression verification: 49 Python tests passed, including custom profile
+filename bootstrap, alias regeneration without a second owner, and restart.

@@ -11,3 +11,8 @@ invented or public. Profile-based clients share one broker without restarting it
 Browser task routing is semantic and language-independent, including browser
 steps implicit in broader tasks. Actual model/tool-selection tests are reported
 separately. Extension 0.2.1 is unchanged; no Android reinstall is required.
+
+Verified with real Codex on arvos-next: repo-only automatic installation, natural
+Italian and English browser requests, and actual Android operations with remote
+medians 118–147 ms. See docs/VALIDATION.md for scope and measurements. Custom
+private profile filenames now also support cold bootstrap and owner restart.

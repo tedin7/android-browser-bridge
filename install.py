@@ -267,6 +267,18 @@ def ensure_persistent_broker(target, args, profile_file=None):
         if profile is not None and _probe_profile(profile):
             return Path(selected).resolve()
         pid_path = state / "broker.pid"
+        runtime_profile = state / "connection.json"
+        if profile is None and canonical != runtime_profile and runtime_profile.exists():
+            # Changing only the client-profile filename must not spawn a
+            # second owner when the authenticated local owner is already live.
+            try:
+                candidate = load_connection(runtime_profile)
+                owner_token = validate_token_path(state / "token").read_text().strip()
+                if hmac.compare_digest(candidate["token"], owner_token) and _probe_profile(candidate):
+                    save_connection(candidate, canonical)
+                    return canonical
+            except (OSError, ValueError):
+                pass
         if profile is not None:
             parts = urlsplit(profile["url"])
             owned = Path(selected).resolve() == canonical and parts.scheme == "http" and parts.hostname in ("127.0.0.1", "localhost")
@@ -300,12 +312,19 @@ def ensure_persistent_broker(target, args, profile_file=None):
         deadline = time.monotonic() + 10
         while time.monotonic() < deadline:
             try:
-                current = load_connection(canonical)
+                # Owner state is isolated and always writes connection.json.
+                # A configured client profile may have a different filename.
+                source = canonical if canonical.exists() else runtime_profile
+                current = load_connection(source)
+                if source != canonical:
+                    owner_token = validate_token_path(state / "token").read_text().strip()
+                    if not hmac.compare_digest(current["token"], owner_token):
+                        raise ValueError("Owner runtime profile does not match its private token")
                 if _probe_profile(current, min(1.0, max(0.05, deadline - time.monotonic()))):
-                    if profile is not None:
-                        # Owner startup writes its runtime endpoint; preserve
-                        # the authorized browser origin and device binding.
-                        save_connection(profile, canonical)
+                    if profile is not None or source != canonical:
+                        # Preserve authorized browser metadata, or publish the
+                        # authenticated owner endpoint to the selected profile.
+                        save_connection(profile if profile is not None else current, canonical)
                     return canonical
             except (OSError, ValueError):
                 pass

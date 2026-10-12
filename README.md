@@ -242,3 +242,5 @@ Un errore certo prima dell’azione può attivare un singolo recupero locale;
 un’azione con esito incerto viene segnalata senza ripetizione automatica.
 Gli screenshot e i clic visuali richiedono un viewport renderizzato; `read.viewport`
 mostra dimensioni e visibilità per aiutare l’agente a decidere il prossimo passo.
+
+Latest automatic Codex setup release: [0.2.4 development](https://github.com/tedin7/android-browser-bridge/releases/tag/v0.2.4-dev). Remote installation, natural-language routing and Android latency measurements are recorded in [validation](docs/VALIDATION.md).
