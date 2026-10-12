@@ -28,6 +28,8 @@ print(root / "android-browser-mcp.pyz")
 with ZipFile(root / "android-browser-bridge-bundle.zip", "w", ZIP_DEFLATED) as archive:
     names = ["AGENTS.md", "README.md", "LICENSE", "PRIVACY.md", "RELEASE_NOTES.md", "bridge.py", "mcp_server.py", "mcp_guidance.py", "browser_navigation.py", "command_order.py", "launcher.py", "connection.py", "install.py", "agent_integration.py", "build.py", "test_bridge.py", "test_navigation.py", "test_attach.py", "test_setup.py", "test_extension.js", "test_firefox.py", "profile_android.py", "profile_client.py", "test_page.html", "smoke_mcp.py", "install.html", "android-browser-bridge.xpi", "android-browser-mcp.pyz"]
     if (root / "interaction_suite.py").exists(): names.append("interaction_suite.py")
+    for optional in ("test_multiserver.js", "test_multiserver_firefox.py", "test_options.js"):
+        if (root / optional).exists(): names.append(optional)
     for name in names:
         archive.write(root / name, name)
     for directory in ("extension", "docs", "agent-skills"):

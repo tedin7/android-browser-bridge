@@ -1,9 +1,47 @@
-<!doctype html><html lang="it"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Browser Bridge</title><style>body{font:18px system-ui;max-width:620px;margin:24px auto;padding:16px}label{display:block;margin:18px 0}input{font:inherit;box-sizing:border-box;width:100%;padding:10px}input[type=checkbox]{width:auto}button{font:inherit;padding:12px}#status{white-space:pre-wrap}</style>
-<h1>Browser Bridge</h1><p>Collega questo browser al tuo terminale. Il controllo è attivo solo quando lo abiliti qui.</p>
-<p>Abilitando il controllo autorizzi il trasferimento al tuo Linux dei titoli e indirizzi delle schede e, quando richiesto, del contenuto delle pagine e dei risultati delle azioni. Le pagine possono contenere dati sensibili. Il servizio Linux e il tuo assistente possono elaborarli secondo le loro impostazioni. <a href="privacy.html" target="_blank">Privacy e dati trasferiti</a></p>
-<form id="config"><label>Collegamento ricevuto dal tuo MCP<input id="code" placeholder="BB1.…" autocomplete="off"></label>
-<details><summary>Impostazioni avanzate</summary><label>Indirizzo servizio<input id="url" type="url" value="http://127.0.0.1:8766" required></label></details>
-<p id="device"></p>
-<label><input id="enabled" type="checkbox"> Abilita controllo remoto delle schede</label>
-<button>Salva</button></form><p id="status"></p><script src="connection.js"></script><script src="options.js"></script></html>
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Browser Bridge</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="options.html" aria-label="Browser Bridge"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M6 22V11m20 11V11M6 13c6 0 5 7 10 7s4-7 10-7M4 25h24"/></svg></span><span>Browser Bridge</span></a>
+      <span id="global-badge" class="badge badge-muted" data-i18n="paused">In pausa</span>
+    </header>
+    <section class="intro">
+      <p class="eyebrow" data-i18n="eyebrow">IL TUO BROWSER, SOTTO IL TUO CONTROLLO</p>
+      <h1 data-i18n="headline">Il tuo browser. I tuoi terminali.</h1>
+      <p class="lead" data-i18n="intro">Collega Firefox ai tuoi assistenti su Linux. Aggiungi più server e scegli quando possono interagire con le tue schede.</p>
+    </section>
+    <div class="workspace">
+      <section class="panel pairing-panel" aria-labelledby="pairing-title">
+        <div class="section-heading"><span class="step-mark" aria-hidden="true">+</span><div><h2 id="pairing-title" data-i18n="addTitle">Aggiungi un collegamento</h2><p data-i18n="addSubtitle">Il codice arriva dal tuo assistente o terminale.</p></div></div>
+        <ol class="steps"><li data-i18n="step1">Chiedi al tuo assistente di collegare questo browser.</li><li data-i18n="step2">Incolla qui il codice BB1 e autorizza il controllo.</li></ol>
+        <form id="config">
+          <label class="field" for="name"><span data-i18n="nameLabel">Nome del collegamento</span><input id="name" maxlength="64" autocomplete="off" data-i18n-placeholder="namePlaceholder" placeholder="Es. il mio portatile"><small data-i18n="optionalName">Facoltativo: scegli un nome facile da riconoscere.</small></label>
+          <label class="field" for="code"><span data-i18n="codeLabel">Codice di collegamento</span><input id="code" type="password" maxlength="8192" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="BB1.…" required aria-describedby="code-help"><small id="code-help" data-i18n="codeHelp">È monouso e scade dopo pochi minuti. Non condividere il codice.</small></label>
+          <details class="advanced"><summary data-i18n="advanced">Ho un codice breve</summary><label class="field" for="url"><span data-i18n="originLabel">Indirizzo del servizio</span><input id="url" type="url" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="https://…"><small data-i18n="originHelp">Serve solo per un codice senza il prefisso BB1. Usa l’indirizzo fornito dal tuo assistente.</small></label></details>
+          <label class="consent"><input id="consent" type="checkbox" required><span><strong data-i18n="consentTitle">Autorizzo questo collegamento</strong><span data-i18n="consentBody">Questo server e il suo assistente potranno leggere e controllare le mie schede, anche su altri siti, e richiedere contenuti e screenshot. Le pagine possono contenere dati sensibili.</span></span></label>
+          <button id="add" class="button button-primary" type="submit" data-i18n="addButton">Collega questo browser <span aria-hidden="true">↗</span></button>
+          <p id="form-status" class="notice" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+      <section class="connections-panel" aria-labelledby="connections-title">
+        <div class="connections-heading"><div><h2 id="connections-title" data-i18n="connectionsTitle">I tuoi collegamenti</h2><p id="connection-count" class="muted"></p></div><button id="global-toggle" class="button button-secondary" type="button" data-i18n="resumeAll">Riprendi tutti</button></div>
+        <p id="pause-banner" class="pause-banner" hidden data-i18n="pauseBanner">Il controllo è in pausa. I collegamenti salvati restano disponibili.</p>
+        <div id="connections" class="connection-list"></div>
+        <div id="empty" class="empty-state"><span class="empty-icon" aria-hidden="true">⇄</span><h3 data-i18n="emptyTitle">Tutto parte da un collegamento.</h3><p data-i18n="emptyBody">Aggiungi il primo server. Potrai collegarne altri senza scollegare quello già presente.</p></div>
+        <p id="connection-status" class="notice" role="status" aria-live="polite"></p>
+        <div class="control-note"><span aria-hidden="true">◌</span><p data-i18n="controlNote">Hai sempre l’ultima parola: metti in pausa un server, rimuovilo o sospendi tutto il controllo con un tocco. Un’azione già avviata potrebbe completarsi.</p></div>
+      </section>
+    </div>
+    <footer><span data-i18n="footer">Il controllo parte solo con la tua autorizzazione.</span><a href="privacy.html" target="_blank" rel="noopener" data-i18n="privacy">Privacy e dati trasferiti</a></footer>
+  </main>
+  <script src="connection.js"></script><script src="connections.js"></script><script src="options.js"></script>
+</body>
+</html>

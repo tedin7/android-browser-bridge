@@ -1,8 +1,8 @@
 /* Resident fixed-operation engine. No remotely supplied scripts or expressions. */
 (() => {
-  if (globalThis.__browserBridgePageVersion === "0.2.1") return;
+  if (globalThis.__browserBridgePageVersion === "0.3.0") return;
   if (globalThis.__browserBridgePageListener) browser.runtime.onMessage.removeListener(globalThis.__browserBridgePageListener);
-  const engineVersion = "0.2.1";
+  const engineVersion = "0.3.0";
   globalThis.__browserBridgePageVersion = engineVersion;
   const epoch = Math.random().toString(36).slice(2, 10);
   let nextRef = 0;

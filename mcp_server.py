@@ -95,7 +95,7 @@ def handle(message):
     method = message.get("method")
     if method == "initialize":
         return {"protocolVersion": message.get("params", {}).get("protocolVersion", "2024-11-05"),
-                "capabilities": {"tools": {}}, "serverInfo": {"name": "android-browser-bridge", "version": "0.2.4"}}
+                "capabilities": {"tools": {}}, "serverInfo": {"name": "android-browser-bridge", "version": "0.3.0"}}
     if method == "ping":
         return {}
     if method == "tools/list":
@@ -119,7 +119,11 @@ def handle(message):
                 origin = os.environ.get("BROWSER_BRIDGE_PUBLIC_URL", url)
                 payload = json.dumps({"url": origin, "urls": json.loads(os.environ.get("BROWSER_BRIDGE_CONNECTION_URLS", "[]")), "code": result["code"]}).encode()
                 result = {"device": args["device"], "pairing": "BB1." + base64.urlsafe_b64encode(payload).decode().rstrip("="),
-                          "expiresIn": result["expiresIn"], "installPage": origin + "/"}
+                          "expiresIn": result["expiresIn"], "installPage": origin + "/",
+                          "nextSteps": ["Open Firefox → Extensions → Browser Bridge.",
+                                        "In Add a connection, paste the BB1 pairing string within five minutes.",
+                                        "Name this server and explicitly authorize browser control; existing servers stay connected.",
+                                        "Wait for Connected, then use browser_devices to verify."]}
             elif params["name"] == "browser_revoke":
                 result = broker_api(url, token, "/api/revoke", {"device": args["device"]})
             elif params["name"] == "browser_command":

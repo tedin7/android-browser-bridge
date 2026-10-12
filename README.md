@@ -6,17 +6,40 @@ Ogni persona esegue il proprio MCP sul proprio Linux e abbina il proprio browser
 Nessun server centrale, account nel progetto, Cloudflare, tunnel o VPN obbligatoria.
 Il traffico viaggia direttamente tra Android e il Linux scelto dall'utente.
 
-**Prototipo sperimentale:** MCP 0.2.2 con estensione 0.2.1 ha superato tutte le 30 operazioni
-su Firefox Linux reale e Firefox Android Nightly su OnePlus Pad 3, inclusi
-multipagina parallelo, controlli semantici, frame, canvas e screenshot.
-Sul tablet, 12 campioni per operazione hanno misurato mediane di 6–13 ms per
-schede, lettura, clic e compilazione, rispetto a circa 935–940 ms della versione
-iniziale. Sono misure su pagine locali, non una garanzia per ogni sito o rete.
-[Risultati e limiti verificati](docs/VALIDATION.md).
-La 0.2.2 corregge sul MCP l’attesa di navigazione avanti/indietro con verifica
-del documento: chi ha già l’estensione 0.2.1 deve aggiornare soltanto il Linux.
-L'estensione è non firmata e richiede un ambiente Firefox di sviluppo.
-Per l'installazione normale in Firefox stabile serve ancora la firma Mozilla.
+**Versione 0.3.0 di sviluppo:** una nuova interfaccia mobile ti guida
+nell’abbinamento e mostra una scheda per ogni server indipendente, con stato,
+pausa e rimozione. Più server possono controllare lo stesso Firefox senza
+sostituire il collegamento precedente. Tutti condividono le stesse schede.
+
+Le versioni precedenti sono state verificate su Firefox Linux e sul tablet
+Android reale, incluso l’uso remoto da Codex tramite SSH. Le misure e le prove
+specifiche della nuova versione sono in [VALIDATION.md](docs/VALIDATION.md).
+Per usare l’interfaccia e i server indipendenti aggiorna **anche l’estensione**;
+il collegamento esistente viene conservato. L’XPI rimane non firmato: per
+Firefox stabile è ancora necessaria la firma Mozilla.
+
+[English quick start](docs/QUICKSTART.en.md)
+
+![Browser Bridge connection interface](docs/images/connections-desktop.png)
+
+*Interfaccia reale renderizzata con collegamenti dimostrativi, non dati utente.*
+[Anteprima mobile](docs/images/connections-mobile.png).
+
+## Un browser, più server
+
+```mermaid
+flowchart LR
+    F[Firefox Android · Browser Bridge] -->|Connessione in uscita HTTPS| A[Broker sul tuo server A]
+    F -->|Connessione in uscita HTTPS| B[Broker sul tuo server B]
+    A --- C[Codex o Claude · client A]
+    A --- D[Altri terminali autorizzati]
+    B --- E[Codex o Claude · client B]
+```
+
+Ogni server indipendente viene aggiunto con il proprio codice BB1. I server
+possono essere su reti diverse: il tablet deve raggiungere ciascun endpoint,
+con HTTPS su Internet. Se un server si interrompe, gli altri continuano.
+[Guida ai collegamenti multipli](docs/MULTICLIENT.md).
 
 ## Installazione automatica in Codex
 
@@ -50,14 +73,14 @@ Il flusso è:
 1. Installa l'estensione nel tuo Firefox Android.
 2. Aggiungi il MCP al tuo assistente Linux.
 3. Chiedigli di abbinare il browser con `browser_pair`.
-4. Incolla la stringa `BB1.…` nell'estensione, abilita il controllo e salva.
+4. Apri **Aggiungi un collegamento**, incolla `BB1.…`, scegli un nome e autorizza il controllo.
 5. Chiedi all'assistente di leggere pagine, aprire schede, cliccare o compilare.
 
 [Più terminali e macchine](docs/MULTICLIENT.md) · [Guida Firefox](docs/FIREFOX.md) · [Reti LAN/Internet e HTTPS](docs/NETWORKING.md) · [Privacy](PRIVACY.md)
 
 **Installazione da terminale:** [Claude Code](docs/CLAUDE_CODE.md) · [Codex CLI](docs/CODEX.md)
 
-**Download Firefox:** [XPI di sviluppo non firmato](https://github.com/tedin7/android-browser-bridge/releases/download/v0.2.1-dev/android-browser-bridge.xpi).
+**Download Firefox:** [XPI di sviluppo non firmato](https://github.com/tedin7/android-browser-bridge/releases/download/v0.3.0-dev/android-browser-bridge.xpi).
 La scheda Mozilla Add-ons non è ancora pubblicata: la guida Firefox contiene
 il percorso per la futura installazione dallo store e la procedura del maintainer.
 
@@ -196,6 +219,8 @@ Il contenuto dei siti è un dato non attendibile, non un’istruzione per l’as
 ```sh
 python3 -m unittest -v test_bridge.py test_navigation.py test_attach.py test_setup.py
 node test_extension.js
+node test_multiserver.js
+node test_options.js
 python3 build.py
 python3 smoke_mcp.py
 python3 smoke_mcp.py --direct
@@ -243,4 +268,4 @@ un’azione con esito incerto viene segnalata senza ripetizione automatica.
 Gli screenshot e i clic visuali richiedono un viewport renderizzato; `read.viewport`
 mostra dimensioni e visibilità per aiutare l’agente a decidere il prossimo passo.
 
-Latest automatic Codex setup release: [0.2.4 development](https://github.com/tedin7/android-browser-bridge/releases/tag/v0.2.4-dev). Remote installation, natural-language routing and Android latency measurements are recorded in [validation](docs/VALIDATION.md).
+Latest development release: [0.3.0](https://github.com/tedin7/android-browser-bridge/releases/tag/v0.3.0-dev). See [validation](docs/VALIDATION.md) for the scope of real-device and regression tests.

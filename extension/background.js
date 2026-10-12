@@ -4,13 +4,28 @@ const TAB_OPERATIONS = new Set(["tabs", "open", "activate", "foreground", "close
 let connected = false, lastError = "", lastEndpoint = "";
 let config = {}, generation = 0;
 const activeRequests = new Set(), transportWaiters = new Set();
-const results = [], tabJobs = new Map();
+const results = [], tabJobs = new Map(), connectionRuntimes = new Map();
 const MAX_OUTSTANDING = 32, MAX_EXECUTING = 4;
 let outstanding = 0, executing = 0, barrier = Promise.resolve();
 const executionWaiters = [];
 function notifyTransport() { for (const resolve of transportWaiters) resolve(); transportWaiters.clear(); }
 function waitForTransport() { return new Promise(resolve => transportWaiters.add(resolve)); }
-function authorized(current) { return config.enabled && generation === current.generation; }
+function sessionCurrent(current) {
+  if (!current.connectionId) return generation === current.generation;
+  return connectionRuntimes.get(current.connectionId) === current.runtime && current.runtime.active;
+}
+function authorized(current) { return config.enabled === true && sessionCurrent(current); }
+function finishOutstanding(current) {
+  outstanding--;
+  if (current.runtime) current.runtime.outstanding--;
+}
+function profilesFor(storage) {
+  if (typeof normalizeBridgeConnections === "function") return normalizeBridgeConnections(storage);
+  // Isolated legacy test harnesses load background.js alone; shipped builds
+  // always load the shared validator before this file.
+  if (storage.connections !== undefined) throw Error("Connection schema unavailable");
+  return storage.url && storage.token && storage.device ? [{...storage, id: "legacy", name: "Collegamento esistente", enabled: true}] : [];
+}
 async function acquireExecution() {
   if (executing < MAX_EXECUTING) { executing++; return; }
   await new Promise(resolve => executionWaiters.push(resolve));
@@ -27,6 +42,7 @@ function scheduleCommand(command, current) {
   const key = String(tabId);
   const dependencies = perTab ? [barrier, tabJobs.get(key)] : [barrier, ...tabJobs.values()];
   outstanding++;
+  if (current.runtime) current.runtime.outstanding++;
   const job = Promise.all(dependencies.filter(Boolean)).then(async () => {
     await acquireExecution();
     const started = performance.now();
@@ -38,8 +54,8 @@ function scheduleCommand(command, current) {
       completion = {device: current.device, id: command.id, error: (error.code ? error.code + ": " : "") + error.message};
     } finally { releaseExecution(); }
     completion.durationMs = performance.now() - started;
-    if (authorized(current)) results.push({payload: completion, current});
-    else outstanding--;
+    if (authorized(current)) (current.runtime?.results || results).push({payload: completion, current});
+    else finishOutstanding(current);
     notifyTransport();
   });
   if (perTab) {
@@ -204,11 +220,14 @@ async function execute(command) {
   return await sendPage(tab.id, op, args);
 }
 async function request(current, path, data) {
+  const runtime = current.runtime;
   const urls = [...new Set(current.urls || [current.url])];
-  if (urls.includes(lastEndpoint)) urls.sort((a, b) => Number(b === lastEndpoint) - Number(a === lastEndpoint));
+  const preferred = runtime ? runtime.endpoint : lastEndpoint;
+  if (urls.includes(preferred)) urls.sort((a, b) => Number(b === preferred) - Number(a === preferred));
   let failure;
   for (const endpoint of urls) {
-    const controller = new AbortController(); activeRequests.add(controller);
+    if (!sessionCurrent(current)) throw Error("Connection disabled or changed");
+    const controller = new AbortController(); activeRequests.add(controller); runtime?.requests.add(controller);
     const timer = setTimeout(() => controller.abort(), (data.waitMs || 0) + 5000);
     try {
       const response = await fetch(validateBridgeOrigin(endpoint) + path, {
@@ -216,70 +235,116 @@ async function request(current, path, data) {
         body: JSON.stringify(data), signal: controller.signal, cache: "no-store"
       });
       if (!response.ok) throw Error(`Bridge HTTP ${response.status}`);
-      const reply = await response.json(); lastEndpoint = endpoint; return reply;
-    } catch (error) { failure = error; if (generation !== current.generation) throw error; }
-    finally { clearTimeout(timer); activeRequests.delete(controller); }
+      const reply = await response.json();
+      if (!sessionCurrent(current)) throw Error("Connection disabled or changed");
+      if (runtime) runtime.endpoint = endpoint; else lastEndpoint = endpoint;
+      return reply;
+    } catch (error) { failure = error; if (!sessionCurrent(current)) throw error; }
+    finally { clearTimeout(timer); activeRequests.delete(controller); runtime?.requests.delete(controller); }
   }
   throw failure || Error("No reachable broker");
 }
-async function sendResults() {
+async function sendResults(runtime) {
+  const queue = runtime.results;
   let backoff = 250;
-  for (;;) {
-    if (!results.length) { await waitForTransport(); continue; }
-    const entry = results[0];
+  while (runtime.active) {
+    if (!queue.length) { await waitForTransport(); continue; }
+    const entry = queue[0];
     if (!authorized(entry.current)) {
-      results.shift(); outstanding--; notifyTransport(); continue;
+      queue.shift(); finishOutstanding(entry.current); notifyTransport(); continue;
     }
     try {
-      // Reporting is independent of the waiting poll. Retry only this idempotent
-      // completion report; never retry the browser action itself.
+      // Each broker has its own reporter. An unreachable service never blocks
+      // completion reports for other services, and actions are never retried.
       await request(entry.current, "/api/result", entry.payload);
-      if (results[0] === entry) { results.shift(); outstanding--; }
+      if (queue[0] === entry) { queue.shift(); finishOutstanding(entry.current); }
       backoff = 250; notifyTransport();
     } catch (error) {
       if (authorized(entry.current)) {
-        lastError = error.message; await delay(backoff); backoff = Math.min(5000, backoff * 2);
+        runtime.error = error.message; await delay(backoff); backoff = Math.min(5000, backoff * 2);
       }
     }
   }
 }
-async function loop() {
-  const initialGeneration = generation;
-  const initial = await browser.storage.local.get(["url", "urls", "token", "device", "enabled"]);
-  // Preserve a storage change occurring while the initial read was pending.
-  if (initialGeneration === generation) config = initial;
-  else config = {...initial, ...config};
-  sendResults();
+async function pollConnection(runtime) {
   let backoff = 250, firstPoll = true;
-  for (;;) {
-    if (!config.enabled || !config.url || !config.token || !config.device) {
-      connected = false; await waitForTransport(); firstPoll = true; continue;
-    }
-    if (outstanding >= MAX_OUTSTANDING) { await waitForTransport(); continue; }
-    const current = {...config, generation};
+  const current = {...runtime.profile, connectionId: runtime.profile.id, runtime};
+  while (runtime.active) {
+    if (runtime.outstanding >= MAX_OUTSTANDING) { await waitForTransport(); continue; }
     try {
       const reply = await request(current, "/api/poll", {device: current.device, version: browser.runtime.getManifest().version, waitMs: firstPoll ? 0 : 20000});
-      if (!authorized(current)) { firstPoll = true; continue; }
-      firstPoll = false; connected = true; lastError = ""; backoff = 250;
+      if (!authorized(current)) break;
+      firstPoll = false; runtime.connected = true; runtime.error = ""; backoff = 250;
       if (reply.command) scheduleCommand(reply.command, current);
     } catch (error) {
-      connected = false;
-      if (generation === current.generation) { lastError = error.message; await delay(backoff); backoff = Math.min(5000, backoff * 2); }
+      runtime.connected = false;
+      if (runtime.active) { runtime.error = error.message; await delay(backoff); backoff = Math.min(5000, backoff * 2); }
       firstPoll = true;
     }
   }
 }
+function stopConnection(runtime) {
+  runtime.active = false; runtime.connected = false;
+  for (const controller of runtime.requests) controller.abort();
+  // Already executing actions cannot be undone. Their late results are
+  // discarded and never sent to a replacement connection or credential.
+  for (const entry of runtime.results) finishOutstanding(entry.current);
+  runtime.results.length = 0;
+  notifyTransport();
+}
+function syncConnections() {
+  let profiles;
+  try { profiles = profilesFor(config); lastError = ""; }
+  catch (error) { profiles = []; lastError = error.message; }
+  const selected = new Map(profiles.filter(profile => config.enabled === true && profile.enabled).map(profile => [profile.id, profile]));
+  for (const [id, runtime] of connectionRuntimes) {
+    const profile = selected.get(id);
+    const fingerprint = profile ? JSON.stringify({url: profile.url, urls: profile.urls, token: profile.token, device: profile.device}) : null;
+    if (!profile || fingerprint !== runtime.fingerprint) { stopConnection(runtime); connectionRuntimes.delete(id); }
+    else runtime.profile = profile;
+  }
+  for (const [id, profile] of selected) {
+    if (connectionRuntimes.has(id)) continue;
+    const runtime = {profile, fingerprint: JSON.stringify({url: profile.url, urls: profile.urls, token: profile.token, device: profile.device}), active: true,
+      connected: false, error: "", endpoint: "", requests: new Set(), results: [], outstanding: 0};
+    connectionRuntimes.set(id, runtime);
+    sendResults(runtime); pollConnection(runtime);
+  }
+  connected = [...connectionRuntimes.values()].some(runtime => runtime.connected);
+  notifyTransport();
+}
+async function loop() {
+  const initialGeneration = generation;
+  const initial = await browser.storage.local.get(["connections", "url", "urls", "token", "device", "enabled"]);
+  // Preserve a storage change occurring while the initial read was pending.
+  if (initialGeneration === generation) config = initial;
+  else config = {...initial, ...config};
+  syncConnections();
+}
 browser.storage.onChanged.addListener((changes, area) => {
   if (area !== "local") return;
-  const keys = ["url", "urls", "token", "device", "enabled"];
+  const keys = ["connections", "url", "urls", "token", "device", "enabled"];
   if (!keys.some(key => key in changes)) return;
   for (const key of keys) if (key in changes) config[key] = changes[key].newValue;
-  generation++; connected = false;
-  for (const controller of activeRequests) controller.abort();
-  notifyTransport();
+  generation++;
+  // Legacy scheduler clients are invalidated globally. Real connection workers
+  // retain their own identity and only changed/removed profiles are aborted.
+  for (const controller of activeRequests) {
+    if (![...connectionRuntimes.values()].some(runtime => runtime.requests.has(controller))) controller.abort();
+  }
+  syncConnections();
 });
 browser.runtime.onMessage.addListener(message => {
-  if (message.type === "status") return Promise.resolve({connected, error: lastError, endpoint: lastEndpoint});
+  if (message.type !== "status") return undefined;
+  let profiles = [];
+  try { profiles = profilesFor(config); } catch (_) {}
+  const statuses = profiles.map(profile => {
+    const runtime = connectionRuntimes.get(profile.id);
+    return typeof bridgeConnectionStatus === "function" ? bridgeConnectionStatus(profile, runtime) :
+      {id: profile.id, name: profile.name, url: profile.url, device: profile.device, enabled: profile.enabled, connected: !!runtime?.connected, error: runtime?.error || "", endpoint: runtime?.endpoint || ""};
+  });
+  const online = statuses.find(status => status.connected);
+  return Promise.resolve({connected: !!online, error: lastError || statuses.find(status => status.error)?.error || "", endpoint: online?.endpoint || "", enabled: config.enabled === true, connections: statuses});
 });
 browser.browserAction.onClicked.addListener(() => browser.runtime.openOptionsPage());
 browser.runtime.onInstalled.addListener(details => { if (details.reason === "install") browser.runtime.openOptionsPage(); });

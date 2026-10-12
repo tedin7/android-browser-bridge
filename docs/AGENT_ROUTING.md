@@ -24,3 +24,18 @@ azioni aggiuntive su account, pubblicazione di dati o invii non richiesti.
 Le prove reali di selezione su Codex via SSH sono riportate in VALIDATION.md.
 La qualità della selezione dipende anche dal modello e dalle istruzioni del client;
 la verifica reale deve controllare le chiamate MCP, non solo il testo della skill.
+
+## Aperture rapide e verifiche proporzionate
+
+Per una semplice richiesta di apertura URL, un dispositivo già confermato può
+essere riutilizzato nella sessione. capabilities serve quando le operazioni sono
+sconosciute o la versione cambia, non prima di ogni apertura. Più URL possono
+usare un solo batch; conserva gli ID restituiti e, se serve, verifica con una
+sola chiamata tabs. Evita letture, screenshot e attese complete non richieste.
+Il batch esegue i passi in sequenza; open senza waitUntil avvia la navigazione
+senza attendere il caricamento completo. "Aperto" e "caricato" hanno significati
+diversi e il messaggio finale deve rispecchiare la verifica eseguita.
+
+Il tempo totale di una risposta Codex include selezione degli strumenti,
+ragionamento, avvio MCP e rete. Non si può attribuire una durata come 35 secondi
+al trasporto senza misurare le singole chiamate.

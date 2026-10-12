@@ -7,7 +7,9 @@ Use the installed Browser Bridge MCP for actions in the user's browser. The MCP
 server name can vary; discover tools by their browser_devices/browser_command
 names, rather than assuming a namespace or embedding device IDs or addresses.
 
-Check browser_devices and select the authorized connected device explicitly.
+Check browser_devices when the session has no confirmed target, and select the
+authorized connected device explicitly. Reuse a confirmed target during the
+session; rediscover after connection errors or an explicit target change.
 Reuse the device selected by the user; if several devices exist and the target
 is unclear, resolve that choice before acting. Use tabs and explicit tabId values
 for existing pages. Track IDs returned by open and close only pages your task
@@ -18,7 +20,15 @@ action is needed. Intent is semantic: Italian, English and other languages use
 the same workflow. General factual questions do not require controlling the
 user's browser unless the task depends on their browser state.
 
-Use capabilities to inspect available fixed operations. Discover unfamiliar
+Read capabilities once when operations are unfamiliar or the extension changes;
+do not repeat discovery for known simple actions. For "open these URLs", submit
+one batch of open steps, retain returned tab IDs, and finish with at most one
+tabs check when verification is needed. Do not read page content, take screenshots
+or wait for full loading unless the task needs it. The batch executes its steps
+in order; opening without waitUntil starts navigation without waiting for it.
+Say "opened" after successful creation; say "loaded" only when complete was
+verified for every relevant tab. Distinguish model/tool-selection time from
+transport time; do not claim timing you did not measure. Discover unfamiliar
 controls with read/locate by role, accessible name, label or textQuery; use returned
 refs or unique selectors for actions. Use screenshots and validated viewport
 coordinates for visual components. Navigation can use waitUntil complete.

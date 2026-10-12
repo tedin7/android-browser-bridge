@@ -3,14 +3,14 @@
 ## Stato attuale
 
 Il repository contiene il sorgente e un pacchetto **non firmato**, per test.
-Non c'è ancora una pubblicazione su Mozilla Add-ons. Non è stato verificato
-su un vero Firefox Android: la prova finale richiede un dispositivo.
+Non c'è ancora una pubblicazione su Mozilla Add-ons. Le versioni precedenti sono state verificate su Firefox Android reale.
+La verifica specifica della nuova versione è descritta in [VALIDATION.md](VALIDATION.md).
 
 **Download diretto dell'estensione di sviluppo:**
-https://github.com/tedin7/android-browser-bridge/releases/download/v0.2.1-dev/android-browser-bridge.xpi
+https://github.com/tedin7/android-browser-bridge/releases/download/v0.3.0-dev/android-browser-bridge.xpi
 
 **Release con pacchetto MCP e sorgenti:**
-https://github.com/tedin7/android-browser-bridge/releases/tag/v0.2.1-dev
+https://github.com/tedin7/android-browser-bridge/releases/tag/v0.3.0-dev
 
 Versioni minime: Firefox desktop 140, Firefox Android 142. Il manifest ora
 dichiara i tipi di dati trasferiti e la pagina di configurazione spiega il
@@ -46,7 +46,11 @@ nel processo di build.
    delle pagine. Le impostazioni dell'estensione si aprono dopo l'installazione.
 7. Dal tuo assistente Linux chiama `browser_pair`, ad esempio con
    `{"device":"my-phone"}`. Incolla la stringa `BB1.…` nell'estensione.
-8. Abilita il controllo remoto e premi Salva. Il codice vale cinque minuti.
+8. Premi **Aggiungi un collegamento**, dai un nome al collegamento e autorizza il controllo.
+   Il codice vale cinque minuti; attendi lo stato **Collegato**.
+9. Ripeti con un altro codice per aggiungere un server indipendente. Puoi mettere
+   in pausa ogni server oppure tutti insieme. L’aggiornamento mantiene il vecchio
+   collegamento, senza ripetere il primo abbinamento.
 
 Non servono ADB, root, Termux o un'app VPN sul dispositivo Android.
 Non usare le impostazioni per estensioni non firmate come istruzione di
@@ -63,7 +67,8 @@ essere annullata dalla revoca.
 
 Funziona sulle pagine HTTP(S), nei limiti dei permessi Firefox. Non controlla
 le altre app Android, l'interfaccia del browser o le pagine interne protette.
-Gli iframe di altre origini e gli shadow root chiusi non sono gestiti. Alcuni
+Gli iframe HTTP(S) accessibili possono essere indirizzati tramite frameId;
+gli shadow root chiusi non sono gestiti. Alcuni
 siti richiedono gesti reali dell'utente e possono rifiutare clic sintetici.
 
 Android può sospendere Firefox in background o a schermo bloccato: riaprilo

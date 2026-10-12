@@ -1,18 +1,23 @@
-# 0.2.4 development — automatic Codex setup and browser intent routing
+# 0.3.0 development — one browser, multiple independent servers
 
-One command, python3 install.py --codex, discovers existing authorized Browser
-Bridge settings, creates a private connection profile, installs/registers the
-MCP and installs a discoverable browser skill plus managed global instructions.
-No machine IP, port, device ID or credential path is required in the agent prompt.
-Other servers, native helper bindings and user instructions are preserved with
-private backups. A new machine still needs authorization; credentials are not
-invented or public. Profile-based clients share one broker without restarting it.
+A redesigned mobile-first Firefox settings page guides pairing with an explicit
+consent step. Named connection cards show live state, endpoint, pause/resume and
+removal; a global switch pauses every server. Italian and English interface text
+follows the browser language. No credentials are rendered or placed in links.
 
-Browser task routing is semantic and language-independent, including browser
-steps implicit in broader tasks. Actual model/tool-selection tests are reported
-separately. Extension 0.2.1 is unchanged; no Android reinstall is required.
+Independent brokers now poll the same extension concurrently with isolated
+credentials and result routing. An unreachable server does not block the others.
+The tab scheduler remains shared across connections. All enabled servers control
+the same tabs; this is not a per-server browsing sandbox. Legacy single-server
+settings are migrated without requiring a new pairing.
 
-Verified with real Codex on arvos-next: repo-only automatic installation, natural
-Italian and English browser requests, and actual Android operations with remote
-medians 118–147 ms. See docs/VALIDATION.md for scope and measurements. Custom
-private profile filenames now also support cold bootstrap and owner restart.
+Update the Firefox extension to 0.3.0 for these features. Existing MCP clients
+remain compatible; automatic Codex setup remains available. The XPI is still
+unsigned and AMO publication is pending. See docs/VALIDATION.md for the actual
+scope of testing; previous Android tests do not establish this build’s installation.
+
+For quick URL-opening requests, agent guidance now reuses a confirmed device,
+queries capabilities only when needed, batches URL creation and limits final
+verification. It distinguishes opened tabs from verified completed navigation.
+49 Python tests, dedicated transport/UI Node suites, and real desktop Firefox
+(two brokers plus full page operations) passed. Mozilla lint: zero findings.

@@ -1,8 +1,30 @@
 # Più terminali e macchine sullo stesso Firefox Android
 
-Un browser si abbina a **un broker**. Qualsiasi numero di client MCP autorizzati
-può collegarsi a quel broker: non avviare un broker nuovo per ogni terminale e
-non ripetere l’abbinamento Firefox.
+L’estensione può mantenere **più broker indipendenti contemporaneamente**.
+Ogni server ha una scheda, una credenziale separata e un proprio interruttore.
+Puoi configurare fino a sedici server indipendenti.
+Qualsiasi numero di client MCP autorizzati può anche condividere uno di questi
+broker: non crearne uno nuovo per ogni terminale sullo stesso server.
+
+## Aggiungere un server indipendente
+
+1. Installa il progetto sul nuovo Linux e prepara un endpoint raggiungibile
+   dal tablet; su Internet usa HTTPS come in [NETWORKING.md](NETWORKING.md).
+2. Chiedi all’assistente di generare il codice con `browser_pair`.
+3. In Firefox apri Browser Bridge → **Aggiungi un collegamento**, incolla `BB1.…`,
+   scegli un nome e autorizza quel server. Gli altri collegamenti rimangono.
+4. Attendi lo stato Collegato. Puoi mettere in pausa un server, rimuoverlo
+   dal tablet, oppure mettere in pausa tutti i server.
+
+Rimuovere una scheda cancella la credenziale locale e ferma le nuove richieste;
+per invalidarla anche sul Linux usa `browser_revoke`. Le azioni già avviate
+non possono essere annullate. Tutti i server abilitati possono controllare le
+stesse schede: non esiste isolamento delle pagine fra server. Le azioni sulla
+stessa scheda vengono ordinate nell’estensione, ma due flussi complessi possono
+comunque interferire. Assegna schede distinte ai lavori paralleli.
+
+L’aggiornamento conserva il collegamento della precedente versione a un solo
+server. Il nome del server è un’etichetta locale, non una verifica d’identità.
 
 ## 1. Mantieni un solo broker in esecuzione
 

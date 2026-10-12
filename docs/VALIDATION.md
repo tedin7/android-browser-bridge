@@ -171,3 +171,34 @@ network-independent or permanent availability was not established.
 
 Final regression verification: 49 Python tests passed, including custom profile
 filename bootstrap, alias regeneration without a second owner, and restart.
+
+
+## 0.3.0 independent servers and connection interface
+
+The new background transport passed the existing Node dispatcher, scheduling,
+navigation and deadline suites, plus a dedicated multi-server suite. The latter
+checks simultaneous polls, independent tokens/devices and results (including
+identical command IDs), offline isolation, per-server disable/removal, global
+pause, legacy settings and redacted status.
+
+A real isolated Firefox desktop profile connected simultaneously to two owned
+HTTP brokers, each accessed through a packaged MCP client. Broker A filled a
+fixture tab and broker B read that value. Concurrent cross-broker reading and
+clicking succeeded; revoking A left B operational. Only temporary test profiles,
+servers and fixture pages were used. The full existing real Firefox page-action
+suite also passed with the new extension.
+
+The 49 Python regression tests passed. These tests do not establish installation
+of extension 0.3.0 on Android: the user's installed Android extension remains
+0.2.1 until explicitly updated through Firefox. Prior Android benchmarks refer
+to that older extension. The new UI and independent-broker behavior require
+the new XPI; no AMO signing or marketplace approval is claimed.
+
+The settings UI passed dedicated Node tests for adding a second server while
+preserving the legacy connection and explicit global pause, legacy token cleanup,
+duplicate confirmation/replacement, consent, invalid codes, network recovery
+messages, per-server/global pause and removal. Tokens were absent from rendered
+text and form values. Desktop and 390px layouts were rendered by actual headless
+Firefox and visually inspected using inert demo profiles; these screenshots are
+illustrative UI previews, not real tablet connections. Final Mozilla web-ext lint
+reported zero errors, notices and warnings for extension 0.3.0.
