@@ -202,3 +202,44 @@ text and form values. Desktop and 390px layouts were rendered by actual headless
 Firefox and visually inspected using inert demo profiles; these screenshots are
 illustrative UI previews, not real tablet connections. Final Mozilla web-ext lint
 reported zero errors, notices and warnings for extension 0.3.0.
+
+
+## 0.3.1 compact response evidence (2026-10-12)
+
+The installed Android extension 0.2.1 was operated by MCP 0.3.1 against owned
+lab and large-DOM fixtures, comparing resultMode full with omitted/default
+compact. Only created tabs were closed afterwards; no screenshots were taken.
+Counts, documentId/URL/textLength and actionable refs were verified.
+
+| Android fixture / operation | Full UTF-8 text bytes | Compact bytes | Reduction |
+| --- | ---: | ---: | ---: |
+| Lab read | 7,700 | 3,343 | 56.58% |
+| Lab locate | 3,287 | 1,537 | 53.24% |
+| Large DOM read | 46,014 | 4,886 | 89.38% |
+| Large DOM locate | 27,300 | 2,176 | 92.03% |
+
+A separate real isolated Firefox desktop benchmark measured lab read
+7,524→3,352 bytes and locate 3,088→1,419; large-DOM read 46,189→4,894 and
+locate 27,454→2,164. Byte/character reductions are not tokenizer counts or
+subscription quota percentages. Full preserves exact values; fields and
+truncation markers make reduced outputs explicit.
+
+65 Python tests passed, including 10 response-policy and 5 Claude setup tests.
+Node regressions cover normal dispatch/scheduling/navigation, multiple servers,
+settings consent/preservation, optional CSS layout and desktop viewport limits.
+
+## 0.3.1 desktop audit on SSH arvos-next
+
+The new runner used Firefox ESR 153.4.0 and Browser Bridge MCP 0.3.1 on an
+owned fixture, without Playwright or screenshots. Requested 1280×720 and
+500×844 were measured exactly, with fixed-position layout and successful
+center hit-tests. A 390×844 request on a separate probe measured 500×844 and
+reported matched:false: Firefox desktop window constraints were not hidden.
+A local Firefox 140 fixture also verified a covered target via occluded:true.
+
+Temporary Firefox pairing follows the actual browser-side /api/pair flow;
+profile/admin credentials remain private and the temporary browser/broker are
+closed on exit. Normal runner startup does not disable browser sandboxes.
+These desktop checks do not establish installation of extension 0.3.1 on the
+user's tablet. Computed layout needs the new engine; compact text works with
+the older installed extension.

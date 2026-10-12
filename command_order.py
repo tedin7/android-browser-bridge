@@ -17,7 +17,7 @@ class CommandOrder:
         tab = args.get('tabId')
         if tab is not None and (isinstance(tab,bool) or not isinstance(tab,int)):
             raise ValueError('tabId must be an integer')
-        global_action = tab is None or operation in {'open', 'activate', 'foreground', 'close', 'batch'}
+        global_action = tab is None or operation in {'open', 'activate', 'foreground', 'close', 'viewport', 'batch'}
         lane = (device, tab)
         ticket = {'token': object(), 'device': device, 'lane': lane, 'global': global_action}
         with self.changed:

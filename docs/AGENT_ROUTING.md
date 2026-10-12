@@ -39,3 +39,20 @@ diversi e il messaggio finale deve rispecchiare la verifica eseguita.
 Il tempo totale di una risposta Codex include selezione degli strumenti,
 ragionamento, avvio MCP e rete. Non si può attribuire una durata come 35 secondi
 al trasporto senza misurare le singole chiamate.
+
+## Risposte e immagini proporzionate alla domanda
+
+Il default compatto limita read a 2.000 caratteri e 20 controlli, locate a
+20 candidati. I riferimenti rimangono utilizzabili; conteggi, troncamento,
+viewport e informazioni di sicurezza restano visibili. inspect mantiene i
+dettagli di un singolo elemento per verifiche di layout. Full ripristina
+i dettagli precedenti, fields consente una selezione esplicita.
+
+Clic e moduli normali usano DOM, locate, inspect e ref. Screenshot serve quando
+la domanda riguarda l’aspetto, un canvas o una sovrapposizione non risolta: non
+va richiesto dopo ogni azione. Un audit visivo può legittimamente richiederlo.
+
+Anche log terminale, HTML, JavaScript minificato e tabelle analitiche possono
+riempire il contesto più dei risultati MCP. Conserva i dati grezzi in file e
+restituisci al modello le righe e gli indicatori necessari. La compattazione
+del contesto non prova da sola che il browser sia lento.

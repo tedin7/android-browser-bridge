@@ -27,7 +27,7 @@ function environment(initial){
  const context=vm.createContext({document,browser,URL,AbortController,AbortSignal,TextDecoder,console,navigator:{language:'en',languages:['en']},crypto:{randomUUID:()=>`fixture-id-${++sequence}`},atob:value=>Buffer.from(value,'base64').toString('binary'),setInterval:()=>0,clearInterval(){},setTimeout,clearTimeout,confirm:()=>true,fetch:async(url,options)=>{
   fetches.push({url,body:JSON.parse(options.body)});
   if(environment.networkFailure)throw Error('NetworkError: unavailable fixture server');
-  return {ok:true,status:200,json:async()=>({token:'fixture-private-token-'+new URL(url).port,device:'fixture-device'})};
+  return {ok:true,status:200,json:async()=>{if(environment.bodyTimeout)return await new Promise((resolve,reject)=>options.signal.addEventListener('abort',()=>reject(Error('aborted fixture response body')),{once:true}));return {token:'fixture-private-token-'+new URL(url).port,device:'fixture-device'};}};
  }});
  context.window=context;
  for(const file of ['connection.js','connections.js','options.js'])vm.runInContext(fs.readFileSync('extension/'+file,'utf8'),context);
@@ -56,6 +56,10 @@ function environment(initial){
  environment.writeFailure=true;await ui.add('http://127.0.0.1:19475');environment.writeFailure=false;await ui.settle();
  assert.equal(JSON.stringify(ui.store),preserved,'failed storage must preserve all existing connections');assert.equal(ui.elements.get('code').value,'','used pairing code must be cleared after failed save');assert(/new|retry/i.test(ui.elements.get('form-status').textContent));
  assert.throws(()=>ui.context.parsePairing(pairing('http://public-plain-http.example'),''));
+ const beforeBody=ui.fetches.length;environment.bodyTimeout=true;ui.context.setTimeout=(fn,ms)=>setTimeout(fn,ms===15000?5:ms);
+ ui.elements.get('code').value='BB1.'+Buffer.from(JSON.stringify({url:'http://127.0.0.1:19476',urls:['http://127.0.0.1:19477'],code:'a1b2c3-d4e5f6'})).toString('base64url');ui.elements.get('consent').checked=true;
+ await ui.context.addPairing();environment.bodyTimeout=false;await ui.settle();
+ assert.equal(ui.fetches.length,beforeBody+1,'response-body timeout must not replay a potentially consumed pair code on fallback endpoint');assert.equal(ui.elements.get('code').value,'');assert.equal(JSON.stringify(ui.store),preserved);
  const rendered=[...ui.elements.values()].map(el=>el.textContent).join(' ');
  for(const profile of ui.store.connections){assert(!rendered.includes(profile.token),'credential must never be rendered');assert(![...ui.elements.values()].some(el=>String(el.value).includes(profile.token)),'credential must not populate form values');}
  const cards=ui.elements.get('connections').children.filter(child=>typeof child==='object');assert.equal(cards.length,2);

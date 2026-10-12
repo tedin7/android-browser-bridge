@@ -28,6 +28,72 @@ def _codex_executable():
     return shutil.which("codex")
 
 
+def _claude_executable():
+    configured = os.environ.get("CLAUDE_CLI_PATH")
+    if configured and Path(configured).is_file() and os.access(configured, os.X_OK):
+        return str(Path(configured).resolve())
+    return shutil.which("claude")
+
+
+def _claude_config_path():
+    return Path.home() / ".claude.json"
+
+
+def _read_claude_config():
+    path = _claude_config_path()
+    raw = path.read_bytes() if path.exists() else None
+    try:
+        config = json.loads(raw) if raw is not None else {}
+    except ValueError:
+        raise ValueError("Existing Claude configuration is invalid; preserved unchanged") from None
+    if not isinstance(config, dict) or not isinstance(config.get("mcpServers", {}), dict):
+        raise ValueError("Existing Claude configuration must contain an optional mcpServers object")
+    return raw, config
+
+
+def _claude_servers():
+    return list(_read_claude_config()[1].get("mcpServers", {}).values())
+
+
+def register_claude(server_config):
+    """Merge user-scope stdio registration, retrying observed concurrent edits."""
+    path = _claude_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    for _ in range(8):
+        raw, config = _read_claude_config()
+        servers = config.get("mcpServers", {})
+        name = _server_name(servers)
+        previous = servers.get(name, {})
+        value = {**previous, **server_config, "type": "stdio"}
+        value["env"] = {**previous.get("env", {}), **server_config.get("env", {})}
+        # Credentials belong only in the canonical private profile.
+        for key in ("BROWSER_BRIDGE_TOKEN", "BROWSER_BRIDGE_TOKEN_FILE", "BROWSER_BRIDGE_URL", "BROWSER_BRIDGE_CONNECTION_FILE"):
+            value["env"].pop(key, None)
+        if not value["env"]:
+            value.pop("env")
+        updated = {**config, "mcpServers": {**servers, name: value}}
+        if updated == config:
+            path.chmod(0o600)
+            return name
+        staging = path.with_name(path.name + ".tmp-" + secrets.token_hex(4))
+        try:
+            with staging.open("x") as stream:
+                staging.chmod(0o600)
+                stream.write(json.dumps(updated, indent=2) + "\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+            if (path.read_bytes() if path.exists() else None) != raw:
+                continue
+            _backup(path)
+            if (path.read_bytes() if path.exists() else None) != raw:
+                continue
+            os.replace(staging, path)
+            return name
+        finally:
+            staging.unlink(missing_ok=True)
+    raise RuntimeError("Claude configuration kept changing concurrently; retry installation")
+
+
 def _codex_servers(executable=None):
     executable = executable or _codex_executable()
     if not executable:
@@ -133,7 +199,7 @@ def discover_connection_profile():
         load_connection(path)
         return path.resolve()
     generated = _generated_config()
-    records = list(generated.get("mcpServers", {}).values()) + _codex_servers()
+    records = list(generated.get("mcpServers", {}).values()) + _codex_servers() + _claude_servers()
     for record in records:
         profile = _profile_from_record(record)
         if profile is not None:
@@ -359,6 +425,7 @@ def _install_package(root, destination):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--codex", action="store_true", help="Discover the connection and register this MCP automatically in Codex")
+    parser.add_argument("--claude", action="store_true", help="Discover the connection and register this MCP automatically in Claude Code")
     parser.add_argument("--auto", action="store_true", help="Reuse a private profile or discover existing Browser Bridge settings")
     parser.add_argument("--url", help="Address reachable from Android; optionally different from the attached broker address")
     parser.add_argument("--attach", help="Generate an MCP client for an already-running broker")
@@ -375,7 +442,12 @@ def main():
     executable = _codex_executable() if args.codex else None
     if args.codex and not executable:
         raise RuntimeError("Codex CLI was not found; install Codex or run without --codex to generate its MCP configuration")
+    claude_executable = _claude_executable() if args.claude else None
+    if args.claude and not claude_executable:
+        raise RuntimeError("Claude Code CLI was not found; install Claude Code or run without --claude")
     records = _codex_servers(executable) if args.codex else []
+    if args.claude:
+        records += _claude_servers()
     profile_file = None
     if args.attach:
         token = validate_token_path(args.token_file).read_text().strip()
@@ -383,7 +455,7 @@ def main():
         if args.url:
             profile["browserUrl"] = validate_origin(args.url)
         profile_file = save_connection(profile).resolve()
-    elif args.auto or args.codex:
+    elif args.auto or args.codex or args.claude:
         profile_file = discover_connection_profile()
     profile = load_connection(profile_file) if profile_file else None
     if profile_file and args.url and not args.attach:
@@ -396,7 +468,7 @@ def main():
     bindings = _native_bindings([*existing.get("mcpServers", {}).values(), *records], profile)
     target = _install_package(root, destination)
     existing_connection = profile_file is not None
-    if args.codex:
+    if args.codex or args.claude:
         profile_file = ensure_persistent_broker(target, args, profile_file)
         profile = load_connection(profile_file)
     command_args = [str(target)]
@@ -415,7 +487,7 @@ def main():
     config = {**existing, "mcpServers": {**existing.get("mcpServers", {}), generated_name: server_config}}
     _write_config(config_path, config)
     if args.codex:
-        servers = {record["name"]: record for record in records}
+        servers = {record["name"]: record for record in records if "name" in record}
         name = _server_name(servers)
         codex_home = Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))).expanduser()
         _backup(codex_home / "config.toml")
@@ -430,7 +502,12 @@ def main():
         guidance = install_codex_guidance()
         guidance_installed = isinstance(guidance, dict) and bool(guidance)
         print(f"Codex MCP registered: {name}. " + ("Existing browser connection reused." if existing_connection else "Persistent broker ready for initial browser pairing.") + (" Browser task guidance installed." if guidance_installed else ""))
-    else:
+    if args.claude:
+        name = register_claude(server_config)
+        from agent_integration import install_claude_guidance
+        install_claude_guidance()
+        print(f"Claude Code MCP registered: {name}. Persistent broker ready. Browser task guidance installed.")
+    if not args.codex and not args.claude:
         print(json.dumps({"mcpServers": {generated_name: server_config}}, indent=2))
         print(f"Config saved to {config_path}; merge this server into your MCP client's existing configuration.", file=sys.stderr)
 

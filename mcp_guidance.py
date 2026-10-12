@@ -12,9 +12,10 @@ REMEDIES = {
     'PAGE_RESPONSE_TIMEOUT': ['Call foreground with this tabId and inspect the current page state.', 'The page may be suspended and the action may have occurred; do not blindly repeat a modifying action.'],
     'NOT_EDITABLE': ['Inspect the element type and find an input, textarea or contenteditable control.'],
     'INVALID_TARGET': ['Inspect the target and choose an element compatible with this operation.'],
-    'UNSUPPORTED_OPERATION': ['Check capabilities and update the extension if this operation is required.'],
+    'UNSUPPORTED_OPERATION': ['Use viewport only on Firefox desktop; Android viewport follows the device screen.', 'Computed inspect layout requires extension 0.3.1; use basic geometry or update the extension before claiming CSS details.', 'Check capabilities only for the unknown feature.'],
     'CANCELED': ['The page canceled the input event; inspect its validation or required interaction sequence before retrying.'],
     'VIEWPORT_UNAVAILABLE': ['Call foreground for this device and tab.', 'If Firefox remains suspended, open Firefox on Android, then inspect read.viewport before retrying.'],
+    'VIEWPORT_MEASUREMENT_UNAVAILABLE': ['The window may already have resized. Inspect read.viewport and use measured dimensions before repeating viewport.', 'Foreground the desktop tab if rendering is suspended.'],
     'TAB_NOT_VISIBLE': ['Call foreground with this tabId.', 'Keep Firefox visible on Android and retry the screenshot after read.viewport is nonzero.'],
     'NOT_FOUND': ['Use locate or read to discover the current controls.', 'Use wait if the element is still loading.'],
     'NOT_UNIQUE': ['Inspect locate candidates and narrow role/name/label or select one returned ref.'],
@@ -33,7 +34,7 @@ REMEDIES = {
     'COMMAND_TIMEOUT': ['Inspect current page state before repeating any action.', 'The action may already have occurred; do not retry blindly.'],
     'NETWORK_ERROR': ['Check broker availability and network.', 'Inspect current page state before repeating an action; delivery may have occurred.'],
 }
-PRECONDITION_CODES = set(REMEDIES) - {'TIMEOUT','COMMAND_TIMEOUT','NETWORK_ERROR','PAGE_RESPONSE_TIMEOUT','CANCELED','INVALID_VALUE','NAVIGATION_TIMEOUT'}
+PRECONDITION_CODES = set(REMEDIES) - {'TIMEOUT','COMMAND_TIMEOUT','NETWORK_ERROR','PAGE_RESPONSE_TIMEOUT','CANCELED','INVALID_VALUE','NAVIGATION_TIMEOUT','VIEWPORT_MEASUREMENT_UNAVAILABLE'}
 
 def failure(error, device=None, operation=None):
     message=str(error)
@@ -45,7 +46,7 @@ def failure(error, device=None, operation=None):
     elif isinstance(error,(OSError,ConnectionError)): code='NETWORK_ERROR'
     result={'code':code,'message':message,'operation':operation,'device':device,
         'actionMayHaveOccurred':code not in PRECONDITION_CODES and operation not in {'tabs','read','inspect','locate','capabilities','frames','screenshot','wait'},
-        'retryableAfterRecovery':code in REMEDIES and code not in {'COMMAND_TIMEOUT','NETWORK_ERROR','PAGE_RESPONSE_TIMEOUT','NAVIGATION_TIMEOUT'},
+        'retryableAfterRecovery':code in REMEDIES and code not in {'COMMAND_TIMEOUT','NETWORK_ERROR','PAGE_RESPONSE_TIMEOUT','NAVIGATION_TIMEOUT','VIEWPORT_MEASUREMENT_UNAVAILABLE'},
         'nextSteps':REMEDIES.get(code,['Inspect the current page and capabilities before deciding whether to repeat the operation.'])}
     command=re.search(r'Command ID: ([a-zA-Z0-9_-]+)',message)
     if command:result['commandId']=command.group(1)

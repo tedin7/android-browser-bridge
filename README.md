@@ -6,7 +6,7 @@ Ogni persona esegue il proprio MCP sul proprio Linux e abbina il proprio browser
 Nessun server centrale, account nel progetto, Cloudflare, tunnel o VPN obbligatoria.
 Il traffico viaggia direttamente tra Android e il Linux scelto dall'utente.
 
-**Versione 0.3.0 di sviluppo:** una nuova interfaccia mobile ti guida
+**Versione 0.3.1 di sviluppo:** una nuova interfaccia mobile ti guida
 nell’abbinamento e mostra una scheda per ogni server indipendente, con stato,
 pausa e rimozione. Più server possono controllare lo stesso Firefox senza
 sostituire il collegamento precedente. Tutti condividono le stesse schede.
@@ -25,6 +25,18 @@ Firefox stabile è ancora necessaria la firma Mozilla.
 *Interfaccia reale renderizzata con collegamenti dimostrativi, non dati utente.*
 [Anteprima mobile](docs/images/connections-mobile.png).
 
+## Meno contesto, anche per gli audit desktop
+
+Le risposte MCP sono compatte per default: read limita testo e controlli,
+locate conserva pochi candidati con conteggi e riferimenti. Full e fields
+permettono di chiedere soltanto il dettaglio necessario. Screenshot serve alle
+verifiche visive, non ad ogni clic. [Uso efficiente](docs/TOKEN_EFFICIENCY.md).
+
+Puoi verificare layout desktop e responsive con Firefox e il nostro MCP,
+senza Playwright, in un profilo isolato. [Audit desktop](docs/DESKTOP_AUDIT.md).
+Le proprietà CSS opzionali richiedono estensione 0.3.1; la riduzione dei
+risultati testuali funziona anche con le estensioni precedenti.
+
 ## Un browser, più server
 
 ```mermaid
@@ -41,12 +53,18 @@ possono essere su reti diverse: il tablet deve raggiungere ciascun endpoint,
 con HTTPS su Internet. Se un server si interrompe, gli altri continuano.
 [Guida ai collegamenti multipli](docs/MULTICLIENT.md).
 
-## Installazione automatica in Codex
+## Installazione automatica in Codex e Claude Code
 
 Dalla checkout del repository:
 
 ```sh
 python3 install.py --codex
+```
+
+Per Claude Code: `python3 install.py --claude`. Per entrambi:
+
+```sh
+python3 install.py --codex --claude
 ```
 
 Il comando rileva la connessione Browser Bridge già autorizzata, installa il
@@ -80,7 +98,7 @@ Il flusso è:
 
 **Installazione da terminale:** [Claude Code](docs/CLAUDE_CODE.md) · [Codex CLI](docs/CODEX.md)
 
-**Download Firefox:** [XPI di sviluppo non firmato](https://github.com/tedin7/android-browser-bridge/releases/download/v0.3.0-dev/android-browser-bridge.xpi).
+**Download Firefox:** [XPI di sviluppo non firmato](https://github.com/tedin7/android-browser-bridge/releases/download/v0.3.1-dev/android-browser-bridge.xpi).
 La scheda Mozilla Add-ons non è ancora pubblicata: la guida Firefox contiene
 il percorso per la futura installazione dallo store e la procedura del maintainer.
 
@@ -268,4 +286,4 @@ un’azione con esito incerto viene segnalata senza ripetizione automatica.
 Gli screenshot e i clic visuali richiedono un viewport renderizzato; `read.viewport`
 mostra dimensioni e visibilità per aiutare l’agente a decidere il prossimo passo.
 
-Latest development release: [0.3.0](https://github.com/tedin7/android-browser-bridge/releases/tag/v0.3.0-dev). See [validation](docs/VALIDATION.md) for the scope of real-device and regression tests.
+Latest development release: [0.3.1](https://github.com/tedin7/android-browser-bridge/releases/tag/v0.3.1-dev). See [validation](docs/VALIDATION.md) for the scope of real-device and regression tests.

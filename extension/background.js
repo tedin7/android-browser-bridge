@@ -1,6 +1,6 @@
 /* Fixed commands, resident page engine and event-driven long polling. */
 const PAGE_OPERATIONS = new Set(["read", "inspect", "locate", "click", "click_point", "drag", "double_click", "hover", "focus", "fill", "type", "clear", "select", "check", "press", "scroll", "wait"]);
-const TAB_OPERATIONS = new Set(["tabs", "open", "activate", "foreground", "close", "reload", "navigate", "back", "forward", "frames", "screenshot", "capabilities", "batch"]);
+const TAB_OPERATIONS = new Set(["tabs", "open", "activate", "foreground", "close", "reload", "navigate", "back", "forward", "frames", "screenshot", "capabilities", "viewport", "batch"]);
 let connected = false, lastError = "", lastEndpoint = "";
 let config = {}, generation = 0;
 const activeRequests = new Set(), transportWaiters = new Set();
@@ -38,7 +38,7 @@ function scheduleCommand(command, current) {
   // Commands on the same tab stay ordered. Commands changing the active tab,
   // batches and implicit-tab commands are barriers across all earlier work.
   const tabId = command.args?.tabId;
-  const perTab = tabId != null && command.op !== "open" && command.op !== "activate" && command.op !== "foreground" && command.op !== "close" && command.op !== "batch";
+  const perTab = tabId != null && command.op !== "open" && command.op !== "activate" && command.op !== "foreground" && command.op !== "close" && command.op !== "viewport" && command.op !== "batch";
   const key = String(tabId);
   const dependencies = perTab ? [barrier, tabJobs.get(key)] : [barrier, ...tabJobs.values()];
   outstanding++;
@@ -147,13 +147,48 @@ async function sendPageMessage(tabId, op, args, deadline) {
   if (!response || !("result" in response)) throw Error("Page engine did not return a result");
   return response.result;
 }
+async function desktopViewport(tab, args) {
+  const width = args.width, height = args.height;
+  if (!Number.isInteger(width) || width < 320 || width > 3840 || !Number.isInteger(height) || height < 320 || height > 2160) throw Object.assign(Error("Viewport width must be 320–3840 and height 320–2160 CSS pixels"), {code: "INVALID_ARGUMENT"});
+  const platform = typeof browser.runtime.getPlatformInfo === "function" ? await browser.runtime.getPlatformInfo() : null;
+  if (!platform || platform.os === "android" || !["linux", "mac", "win", "openbsd"].includes(platform.os) || typeof browser.windows?.get !== "function" || typeof browser.windows?.update !== "function" || !Number.isInteger(tab.windowId)) {
+    throw Object.assign(Error("Desktop viewport resizing requires Firefox desktop window APIs. Android layout follows the device screen; inspect read.viewport and rotate or resize the device manually."), {code: "UNSUPPORTED_OPERATION"});
+  }
+  checkURL(tab.url);
+  const snapshot = () => sendPage(tab.id, "read", {text: false, maxElements: 0, selectors: false});
+  let observed = await snapshot(), actual = observed.viewport;
+  if (!actual || !(actual.width > 0 && actual.height > 0)) throw Object.assign(Error("A rendered page viewport is required before desktop resizing; foreground this tab and retry"), {code: "VIEWPORT_UNAVAILABLE"});
+  let attempts = 0;
+  for (; attempts < 2 && (actual.width !== width || actual.height !== height);) {
+    const window = await browser.windows.get(tab.windowId);
+    if (!(Number.isFinite(window.width) && Number.isFinite(window.height))) throw Object.assign(Error("Desktop window geometry is unavailable in this Firefox build"), {code: "UNSUPPORTED_OPERATION"});
+    const targetWidth = Math.max(320, Math.min(4096, Math.round(window.width + width - actual.width)));
+    const targetHeight = Math.max(320, Math.min(2400, Math.round(window.height + height - actual.height)));
+    await browser.windows.update(tab.windowId, {state: "normal", width: targetWidth, height: targetHeight});
+    attempts++;
+    // Window API completion can precede the content resize event. Measure a
+    // bounded settling interval before issuing another native window update.
+    const deadline = performance.now() + 500;
+    do {
+      observed = await snapshot(); actual = observed.viewport;
+      if (actual?.width === width && actual?.height === height) break;
+      if (performance.now() >= deadline) break;
+      await delay(50);
+    } while (true);
+    if (!actual || !(actual.width > 0 && actual.height > 0)) throw Object.assign(Error("The window may already have changed, but its rendered viewport is unavailable; inspect read.viewport before retrying"), {code: "VIEWPORT_MEASUREMENT_UNAVAILABLE"});
+  }
+  const matched = actual.width === width && actual.height === height;
+  return {tabId: tab.id, windowId: tab.windowId, requested: {width, height}, actual, matched, verified: matched, attempts,
+    desktopOnly: true, affectsWindowTabs: true,
+    ...(matched ? {} : {nextStep: "The browser did not reach the requested viewport. Use actual dimensions for this audit; do not claim the requested size was verified."})};
+}
 async function execute(command) {
   const {op, args = {}} = command;
   if (!PAGE_OPERATIONS.has(op) && !TAB_OPERATIONS.has(op)) throw Error("Unsupported operation");
   if (op === "capabilities") return {version: browser.runtime.getManifest().version,
     operations: [...TAB_OPERATIONS, ...PAGE_OPERATIONS], transport: "HTTP long-poll", trustedEvents: false,
     frames: typeof browser.webNavigation?.getAllFrames === "function", screenshot: typeof browser.tabs.captureTab === "function",
-    openShadowRoots: true, closedShadowRoots: false, nativeAndroidUI: false, foregroundAPI: {tabActivation: true, windowFocus: typeof browser.windows?.update === "function", androidOSForegroundGuaranteed: false}, parallelTabs: true, maxParallelCommands: MAX_EXECUTING};
+    openShadowRoots: true, closedShadowRoots: false, nativeAndroidUI: false, foregroundAPI: {tabActivation: true, windowFocus: typeof browser.windows?.update === "function", androidOSForegroundGuaranteed: false}, parallelTabs: true, maxParallelCommands: MAX_EXECUTING, desktopViewport: {requiresDesktop: true, requiresWindowAPIs: true, calibrationAttempts: 2}};
   if (op === "batch") {
     if (!Array.isArray(args.steps) || args.steps.length < 1 || args.steps.length > 25 || args.steps.some(step => step.op === "batch")) throw Error("batch requires 1–25 non-nested steps");
     const results = [];
@@ -187,6 +222,7 @@ async function execute(command) {
     if (!result.windowFocusRequested) result.nextStep = "If Firefox remains in the background on Android, open Firefox on the device; extensions cannot guarantee Android app foregrounding.";
     return result;
   }
+  if (op === "viewport") return desktopViewport(tab, args);
   if (op === "close") { await browser.tabs.remove(tab.id); return {ok: true}; }
   if (op === "navigate") {
     const action = () => browser.tabs.update(tab.id, {url: checkURL(args.url)});

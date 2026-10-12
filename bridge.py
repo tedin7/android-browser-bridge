@@ -18,7 +18,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 OPERATIONS = {"tabs", "open", "activate", "close", "reload", "read", "click", "fill", "scroll",
-    "capabilities", "foreground", "navigate", "back", "forward", "frames", "screenshot", "inspect", "locate",
+    "capabilities", "foreground", "viewport", "navigate", "back", "forward", "frames", "screenshot", "inspect", "locate",
     "double_click", "click_point", "drag", "hover", "focus", "type", "clear", "select", "check", "press", "wait", "batch"}
 
 

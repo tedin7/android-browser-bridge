@@ -13,7 +13,7 @@ with ZipFile(root / "android-browser-bridge.xpi", "w", ZIP_DEFLATED) as archive:
 print(root / "android-browser-bridge.xpi")
 with tempfile.TemporaryDirectory() as directory:
     staging = Path(directory)
-    for name in ("bridge.py", "mcp_server.py", "mcp_guidance.py", "browser_navigation.py", "command_order.py", "launcher.py", "connection.py", "install.html", "android-browser-bridge.xpi"):
+    for name in ("bridge.py", "mcp_server.py", "mcp_guidance.py", "browser_navigation.py", "command_order.py", "response_policy.py", "launcher.py", "connection.py", "install.html", "android-browser-bridge.xpi"):
         shutil.copy2(root / name, staging / name)
     (staging / "__main__.py").write_text('''import sys, tempfile, zipfile, runpy
 from pathlib import Path
@@ -26,9 +26,9 @@ with tempfile.TemporaryDirectory(prefix="browser-bridge-") as directory:
     zipapp.create_archive(staging, root / "android-browser-mcp.pyz", interpreter="/usr/bin/env python3", compressed=True)
 print(root / "android-browser-mcp.pyz")
 with ZipFile(root / "android-browser-bridge-bundle.zip", "w", ZIP_DEFLATED) as archive:
-    names = ["AGENTS.md", "README.md", "LICENSE", "PRIVACY.md", "RELEASE_NOTES.md", "bridge.py", "mcp_server.py", "mcp_guidance.py", "browser_navigation.py", "command_order.py", "launcher.py", "connection.py", "install.py", "agent_integration.py", "build.py", "test_bridge.py", "test_navigation.py", "test_attach.py", "test_setup.py", "test_extension.js", "test_firefox.py", "profile_android.py", "profile_client.py", "test_page.html", "smoke_mcp.py", "install.html", "android-browser-bridge.xpi", "android-browser-mcp.pyz"]
+    names = ["AGENTS.md", "README.md", "LICENSE", "PRIVACY.md", "RELEASE_NOTES.md", "bridge.py", "mcp_server.py", "mcp_guidance.py", "browser_navigation.py", "command_order.py", "response_policy.py", "launcher.py", "connection.py", "install.py", "agent_integration.py", "build.py", "test_bridge.py", "test_navigation.py", "test_attach.py", "test_setup.py", "test_extension.js", "test_firefox.py", "profile_android.py", "profile_client.py", "test_page.html", "smoke_mcp.py", "install.html", "android-browser-bridge.xpi", "android-browser-mcp.pyz"]
     if (root / "interaction_suite.py").exists(): names.append("interaction_suite.py")
-    for optional in ("test_multiserver.js", "test_multiserver_firefox.py", "test_options.js"):
+    for optional in ("test_multiserver.js", "test_multiserver_firefox.py", "test_options.js", "test_response_policy.py", "benchmark_response.py", "desktop_audit.py", "test_layout.js", "test_viewport.js", "test_claude_install.py"):
         if (root / optional).exists(): names.append(optional)
     for name in names:
         archive.write(root / name, name)

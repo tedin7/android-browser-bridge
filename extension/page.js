@@ -1,8 +1,8 @@
 /* Resident fixed-operation engine. No remotely supplied scripts or expressions. */
 (() => {
-  if (globalThis.__browserBridgePageVersion === "0.3.0") return;
+  if (globalThis.__browserBridgePageVersion === "0.3.1") return;
   if (globalThis.__browserBridgePageListener) browser.runtime.onMessage.removeListener(globalThis.__browserBridgePageListener);
-  const engineVersion = "0.3.0";
+  const engineVersion = "0.3.1";
   globalThis.__browserBridgePageVersion = engineVersion;
   const epoch = Math.random().toString(36).slice(2, 10);
   let nextRef = 0;
@@ -144,6 +144,22 @@
     const visual = window.visualViewport;
     return {width: innerWidth, height: innerHeight, documentWidth: document.documentElement.getBoundingClientRect().width, visibility: document.visibilityState,
       visual: visual ? {width: visual.width, height: visual.height, offsetLeft: visual.offsetLeft, offsetTop: visual.offsetTop, scale: visual.scale} : null};
+  }
+  function layoutInfo(el) {
+    const style = getComputedStyle(el), rect = el.getBoundingClientRect(), visual = window.visualViewport;
+    const left = visual?.offsetLeft || 0, top = visual?.offsetTop || 0;
+    const right = left + (visual?.width ?? innerWidth), bottom = top + (visual?.height ?? innerHeight);
+    const rendered = visible(el), x = rect.left + rect.width / 2, y = rect.top + rect.height / 2;
+    const inViewport = rendered && rect.right > left && rect.bottom > top && rect.left < right && rect.top < bottom;
+    const centerInViewport = rendered && x >= left && y >= top && x < right && y < bottom;
+    const hit = centerInViewport ? hitAt({clientX: x, clientY: y}) : null;
+    const hitTest = !!hit && composedContains(el, hit);
+    return {
+      position: style.position, top: style.top, right: style.right, bottom: style.bottom, left: style.left,
+      zIndex: style.zIndex, display: style.display, overflowX: style.overflowX, overflowY: style.overflowY,
+      clientWidth: el.clientWidth, clientHeight: el.clientHeight, scrollWidth: el.scrollWidth, scrollHeight: el.scrollHeight,
+      inViewport, centerInViewport, hitTest, hitTestPerformed: centerInViewport, occluded: hit ? !hitTest : null
+    };
   }
   function position(target) {
     const windowTarget = target === window, element = document.scrollingElement;
@@ -371,6 +387,7 @@
       if ("value" in el && el.type !== "password") result.value = String(el.value).slice(0, 4096);
       if (el instanceof HTMLSelectElement) result.options = [...el.options].map(option => ({value: option.value, text: option.text, selected: option.selected, disabled: option.disabled}));
       if (el.isContentEditable) result.value = el.textContent.slice(0, 4096);
+      if (args.layout === true) result.layout = layoutInfo(el);
       return result;
     }
     actionable(el, args, ["fill", "type", "clear", "press"].includes(op));

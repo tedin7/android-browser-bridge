@@ -4,13 +4,13 @@
 
 Il repository contiene il sorgente e un pacchetto **non firmato**, per test.
 Non c'è ancora una pubblicazione su Mozilla Add-ons. Le versioni precedenti sono state verificate su Firefox Android reale.
-La verifica specifica della nuova versione è descritta in [VALIDATION.md](VALIDATION.md).
+La verifica specifica della nuova versione 0.3.1 è descritta in [VALIDATION.md](VALIDATION.md).
 
 **Download diretto dell'estensione di sviluppo:**
-https://github.com/tedin7/android-browser-bridge/releases/download/v0.3.0-dev/android-browser-bridge.xpi
+https://github.com/tedin7/android-browser-bridge/releases/download/v0.3.1-dev/android-browser-bridge.xpi
 
 **Release con pacchetto MCP e sorgenti:**
-https://github.com/tedin7/android-browser-bridge/releases/tag/v0.3.0-dev
+https://github.com/tedin7/android-browser-bridge/releases/tag/v0.3.1-dev
 
 Versioni minime: Firefox desktop 140, Firefox Android 142. Il manifest ora
 dichiara i tipi di dati trasferiti e la pagina di configurazione spiega il

@@ -1,23 +1,22 @@
-# 0.3.0 development — one browser, multiple independent servers
+# 0.3.1 development — lean MCP responses and fixed desktop layout audits
 
-A redesigned mobile-first Firefox settings page guides pairing with an explicit
-consent step. Named connection cards show live state, endpoint, pause/resume and
-removal; a global switch pauses every server. Italian and English interface text
-follows the browser language. No credentials are rendered or placed in links.
+Compact browser_command responses are now the default: read starts at 2,000
+text characters and 20 controls, locate at 20 controls, preserving refs, counts,
+truncation, document/viewport evidence and safety metadata. Explicit limits win;
+full restores the previous output and fields selects top-level properties.
+Duplicate labels and long attributes/frame URLs are reduced with explicit flags.
+Screenshot results in batches become MCP images rather than base64 inside JSON.
 
-Independent brokers now poll the same extension concurrently with isolated
-credentials and result routing. An unreachable server does not block the others.
-The tab scheduler remains shared across connections. All enabled servers control
-the same tabs; this is not a per-server browsing sandbox. Legacy single-server
-settings are migrated without requiring a new pairing.
+Updated agent guidance favors targeted DOM operations, confirmed devices and tab
+IDs, batches and proportionate verification. Screenshots remain available when
+visual evidence is required. Raw logs/HTML/tables should stay in evidence files.
+Text response optimization also works with older installed Android extensions.
 
-Update the Firefox extension to 0.3.0 for these features. Existing MCP clients
-remain compatible; automatic Codex setup remains available. The XPI is still
-unsigned and AMO publication is pending. See docs/VALIDATION.md for the actual
-scope of testing; previous Android tests do not establish this build’s installation.
+Extension 0.3.1 adds optional fixed inspect layout metadata and a desktop-only
+viewport command. desktop_audit.py uses Firefox plus our MCP in a temporary
+profile, without Playwright or arbitrary page JavaScript, and no screenshots
+unless requested. Measured viewport matching and explicit limits prevent
+claiming Android rendering or requested sizes that were not actually observed.
 
-For quick URL-opening requests, agent guidance now reuses a confirmed device,
-queries capabilities only when needed, batches URL creation and limits final
-verification. It distinguishes opened tabs from verified completed navigation.
-49 Python tests, dedicated transport/UI Node suites, and real desktop Firefox
-(two brokers plus full page operations) passed. Mozilla lint: zero findings.
+See docs/TOKEN_EFFICIENCY.md, docs/DESKTOP_AUDIT.md and docs/VALIDATION.md for
+usage and measured verification. The XPI remains unsigned; no AMO approval.

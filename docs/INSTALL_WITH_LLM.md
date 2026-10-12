@@ -19,18 +19,21 @@ Esegui tu discovery, clone, build, test e configurazione MCP sul mio Linux.
 Non usare ADB, VPN obbligatorie, Cloudflare, relay o tunnel esterni.
 Non sovrascrivere altri server MCP, configurazioni, certificati o firewall.
 
-Per Codex esegui python3 install.py --codex: rileva la connessione già
+Per Codex esegui python3 install.py --codex; per Claude Code --claude;
+per entrambi --codex --claude: rileva la connessione già
 configurata, migra le credenziali in un profilo privato e registra il MCP con
 skill e istruzioni per usare il browser in modo implicito in qualsiasi lingua.
 Non chiedermi IP o percorsi se sono già rilevabili; non inserirli nel codice.
 Preserva gli altri MCP e le istruzioni AGENTS esistenti.
 
 Per verificare la checkout, esegui prima python3 build.py, poi:
-python3 -m unittest -v test_bridge.py test_navigation.py test_attach.py test_setup.py
+python3 -m unittest -v test_bridge.py test_navigation.py test_attach.py test_setup.py test_response_policy.py test_claude_install.py
 python3 smoke_mcp.py
 Se Node è disponibile esegui node test_extension.js
 node test_multiserver.js
-node test_options.js.
+node test_options.js
+node test_layout.js
+node test_viewport.js.
 
 Se non c’è una connessione Browser Bridge autorizzata, non inventare credenziali.
 Prepara il broker locale e determina la raggiungibilità Android seguendo
@@ -38,8 +41,11 @@ NETWORKING.md. Usa solo connessioni fidate: HTTPS su Internet, HTTP soltanto in
 LAN fidata o loopback con trasporto SSH cifrato già autorizzato. Se mancano
 indirizzo di rete o autorizzazione, spiega il requisito concreto.
 L’XPI è non firmato: non dichiarare installabilità normale su Firefox stabile.
-Per la nuova interfaccia e più server indipendenti serve l’estensione 0.3.0.
+Per la nuova interfaccia e più server indipendenti serve l’estensione 0.3.0 o successiva.
 L’aggiornamento conserva l’abbinamento precedente; non revocarlo.
+Per ridurre il contesto leggi TOKEN_EFFICIENCY.md: risultati compatti, DOM mirato
+e screenshot soltanto per verifiche visive. Per controlli desktop/viewport
+usa desktop_audit.py e DESKTOP_AUDIT.md senza Playwright.
 Completa autonomamente i passaggi Android quando hai strumenti per controllarne
 l’interfaccia; altrimenti indica soltanto il consenso/installazione indispensabili.
 Non presentare foreground come controllo dell’installer.
