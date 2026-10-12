@@ -7,7 +7,6 @@ import json
 import os
 from pathlib import Path
 import secrets
-import socket
 import tempfile
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -149,8 +148,10 @@ def make_server(port, token):
                 if len(parts)==3 and parts[1]=='event':
                     result,drop=state.event(parts[2],body)
                     if drop:
+                        # The effect is committed but its response is replaced by a gateway failure.
+                        # An abruptly closed connection made Firefox resend the POST, duplicating the effect.
                         self.close_connection=True
-                        self.connection.shutdown(socket.SHUT_RDWR);self.connection.close();return
+                        return self.reply({'error':'Upstream response lost'},504)
                     return self.reply(result)
                 raise ValueError('Unknown path')
             except (ValueError,KeyError,TypeError):self.reply({'error':'Invalid fixture request'},400)

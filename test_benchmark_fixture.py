@@ -56,8 +56,11 @@ class BenchmarkFixtureTests(unittest.TestCase):
         self.identity['scenario']='uncertain_result'
         prepared=run_hook(self.config,'prepare',self.identity,self.client)
         action=prepared['context']['actionId']
-        with self.assertRaises((http.client.RemoteDisconnected,URLError)):
+        # A 504 replaces the response: browsers do not resend a POST that got an answer.
+        with self.assertRaises(HTTPError) as lost:
             self.event('commit',actionId=action)
+        self.assertEqual(lost.exception.code,504)
+        self.assertNotIn(b'effectCount',lost.exception.read())
         result=self.event('reconcile',actionId=action)
         self.assertEqual(result['effectCount'],1)
         verified=run_hook(self.config,'verify',self.identity,self.client)

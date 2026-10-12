@@ -135,6 +135,9 @@ def project_response(operation, result, mode, fields=None, arguments=None):
     if not isinstance(result, dict) or result.get("error") or result.get("nextSteps"):
         return result
     projected = dict(result)
+    if isinstance(result.get("viewport"), dict):
+        # Width/height/visibility answer "is the page suspended?"; zoom internals cost every turn.
+        projected["viewport"] = {key: result["viewport"][key] for key in ("width", "height", "visibility") if key in result["viewport"]}
     if operation in {"read", "locate"} and isinstance(result.get("elements"), list):
         projected["elements"] = [_compact_element(element, arguments) for element in result["elements"]]
         if operation == "locate":
