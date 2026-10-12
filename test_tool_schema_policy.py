@@ -37,7 +37,9 @@ class TokenEconomyTests(unittest.TestCase):
             fields = tool['inputSchema'].get('properties', {}).get('resultFields')
             if fields:
                 self.assertNotIn('enum', fields['items'])
-        self.assertLess(len(json.dumps(compact)), 7500)
+        self.assertLess(len(json.dumps(compact)), 8000)
+        command = next(tool for tool in compact if tool["name"] == "browser_command")
+        self.assertIn("Aim for two calls per task", command["description"])
         full = project_tools(TOOLS, full=True)
         status = next(tool for tool in full if tool['name'] == 'browser_status')
         self.assertIn('enum', status['inputSchema']['properties']['resultFields']['items'])
