@@ -2,7 +2,7 @@
 import copy
 
 COMMON_ARGUMENTS={'tabId','frameId','url','selector','ref','value','role','name','textQuery',
-                  'checked','values','key','textLimit','maxElements','waitUntil','steps','timeoutMs'}
+                  'checked','values','key','textLimit','maxElements','waitUntil','steps','timeoutMs','package'}
 
 
 def project_tools(tools,full=False):

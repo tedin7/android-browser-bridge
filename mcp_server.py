@@ -64,7 +64,7 @@ TOOLS = [
                  "offset":{"type":"integer","minimum":0},"textOffset":{"type":"integer","minimum":0},
                  "format":{"type":"string","enum":["jpeg","png"]},"quality":{"type":"integer","minimum":1,"maximum":100},
                  "steps":{"oneOf":[{"type":"integer","minimum":1,"maximum":60},{"type":"array","minItems":1,"maxItems":25,"items":{"type":"object","required":["op"],"properties":{"op":{"type":"string","enum":sorted(OPERATIONS-{'batch'})},"args":{"type":"object"}},"additionalProperties":False}}]},
-                 "package":{"type":"string","pattern":"^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$","description":"Native companion device only: Android app to control; opened automatically when not on screen. Must be in the companion's allowed apps."},"toX":{"type":"number"},"toY":{"type":"number"},"dragSteps":{"type":"integer","minimum":1,"maximum":60},"x": {"type": "number"}, "y": {"type": "number"}}, "additionalProperties": False}}}}
+                 "package":{"type":"string","pattern":"^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$","description":"Native companion only: allowed Android app to target; opened if not on screen."},"toX":{"type":"number"},"toY":{"type":"number"},"dragSteps":{"type":"integer","minimum":1,"maximum":60},"x": {"type": "number"}, "y": {"type": "number"}}, "additionalProperties": False}}}}
 ]
 
 

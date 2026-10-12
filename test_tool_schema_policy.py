@@ -13,3 +13,11 @@ class SchemaPolicyTests(unittest.TestCase):
         self.assertNotIn('leaseGeneration',compact['args']['properties'])
         self.assertIn('leaseGeneration',full['args']['properties'])
         self.assertEqual(project_tools(TOOLS,full=True),TOOLS)
+
+
+class NativePackageSchemaTests(unittest.TestCase):
+    def test_compact_schema_advertises_native_package(self):
+        command = next(tool for tool in project_tools(TOOLS) if tool['name'] == 'browser_command')
+        package = command['inputSchema']['properties']['args']['properties']['package']
+        self.assertEqual(package['type'], 'string')
+        self.assertIn('Native companion', package['description'])
