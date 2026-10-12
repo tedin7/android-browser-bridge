@@ -207,9 +207,12 @@ def promotion(episodes, stopped=None):
         reasons.append('incomplete_episodes')
     if any(not e.get('usage', {}).get('usageComplete') for e in episodes):
         reasons.append('missing_usage')
-    if any(not e.get('verified') or e.get('exitCode') != 0 for e in episodes):
+    # The baseline is the comparison arm: its failures are measurements, not gate failures.
+    if any(not e.get('verified') or e.get('exitCode') != 0 for e in episodes if e.get('revision') == 'candidate'):
         reasons.append('unverified_or_failed_episode')
-    return {'promotable': not reasons, 'reasons': reasons}
+    baseline = [e for e in episodes if e.get('revision') == 'baseline']
+    return {'promotable': not reasons, 'reasons': reasons,
+            'baselineUnverified': sum(1 for e in baseline if not e.get('verified') or e.get('exitCode') != 0)}
 
 
 def run(config):
@@ -275,7 +278,7 @@ def run(config):
                     stopped = stopped or 'token_budget'
                 if not usage.report()['usageComplete']:
                     stopped = stopped or 'missing_usage'
-                if not record['verified'] or record.get('exitCode') != 0:
+                if revision == 'candidate' and (not record['verified'] or record.get('exitCode') != 0):
                     stopped = stopped or 'unverified_episode'
     return {'reportVersion': 1, 'configurationSha256': hashlib.sha256(frozen.encode()).hexdigest(),
             'limits': limits, 'usage': consumed, 'seconds': round(time.monotonic()-started, 3),

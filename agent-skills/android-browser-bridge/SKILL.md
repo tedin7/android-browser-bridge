@@ -12,9 +12,10 @@ did not choose, ask. Close only tabs your task opened.
 
 Calls: put operation arguments inside `args`, e.g.
 `{"device":"d","op":"read","args":{"tabId":1,"maxElements":20}}`.
-Workflow for forms: one `read` to get refs, one `batch` with every step
-(fill, select, check, click), one final `read` with `maxElements:0` to verify.
-`select` takes option *values*; inspect the select only if a value is rejected.
+Aim for two calls per task, across all tabs: (1) one `batch` of `read` steps, one
+per tab, each step with its own `tabId`; (2) one `batch` with every action for every
+tab (fill, select, check, click) followed by a `read` step with `maxElements:0` per
+tab to verify. Read returns select options; `select` takes option values.
 Use browser_contract only for an operation you have not used and whose error you
 cannot fix from nextSteps.
 

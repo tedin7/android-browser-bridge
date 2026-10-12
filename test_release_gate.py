@@ -97,6 +97,32 @@ class ReleaseGateTests(unittest.TestCase):
         self.assertFalse(result['promotable'])
         self.assertFalse(result['episodes'][-1]['verified'])
 
+    @patch('release_gate.execute', side_effect=fake_execute)
+    def test_baseline_failure_is_recorded_without_stopping(self, execute_mock):
+        def baseline_fails(data, name, identity, deadline):
+            response = hooks(data, name, identity, deadline)
+            if name == 'verify' and identity['revision'] == 'baseline' and identity['scenario'] == 'uncertain_result':
+                response['verified'] = False
+            return response
+        with tempfile.TemporaryDirectory() as directory, patch('release_gate.hook', side_effect=baseline_fails):
+            result = run(config(directory))
+        self.assertEqual(len(result['episodes']), 16)
+        self.assertTrue(result['promotable'])
+        self.assertEqual(result['baselineUnverified'], 2)
+
+    @patch('release_gate.execute', side_effect=fake_execute)
+    def test_candidate_failure_still_stops(self, execute_mock):
+        def candidate_fails(data, name, identity, deadline):
+            response = hooks(data, name, identity, deadline)
+            if name == 'verify' and identity['revision'] == 'candidate':
+                response['verified'] = False
+            return response
+        with tempfile.TemporaryDirectory() as directory, patch('release_gate.hook', side_effect=candidate_fails):
+            result = run(config(directory))
+        self.assertEqual(len(result['episodes']), 2)
+        self.assertFalse(result['promotable'])
+        self.assertIn('unverified_episode', result['reasons'])
+
     def test_deadline_stops_process_without_shell(self):
         result = execute([sys.executable, '-c', 'import time;time.sleep(5)'], '', None, time.monotonic()+.15)
         self.assertEqual(result['stopReason'], 'wall_budget')
