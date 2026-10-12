@@ -1,6 +1,6 @@
 /* Fixed commands, resident page engine and event-driven long polling. */
-const PAGE_OPERATIONS = new Set(["read", "inspect", "locate", "click", "click_point", "drag", "double_click", "hover", "focus", "fill", "type", "clear", "select", "check", "press", "scroll", "wait"]);
-const TAB_OPERATIONS = new Set(["tabs", "open", "activate", "foreground", "close", "reload", "navigate", "back", "forward", "frames", "screenshot", "capabilities", "viewport", "batch"]);
+const PAGE_OPERATIONS = new Set(globalThis.BrowserBridgeOperations?.pageOperations || ["read", "inspect", "locate", "click", "click_point", "drag", "double_click", "hover", "focus", "fill", "type", "clear", "select", "check", "press", "scroll", "wait", "webmcp_discover", "webmcp_invoke"]);
+const TAB_OPERATIONS = new Set(globalThis.BrowserBridgeOperations?.backgroundOperations || ["tabs", "open", "activate", "foreground", "close", "reload", "navigate", "back", "forward", "frames", "screenshot", "capabilities", "viewport", "batch", "acquire_lease", "release_lease"]);
 let connected = false, lastError = "", lastEndpoint = "";
 let config = {}, generation = 0;
 const activeRequests = new Set(), transportWaiters = new Set();
@@ -49,7 +49,7 @@ function scheduleCommand(command, current) {
     let completion;
     try {
       if (!authorized(current)) throw Error("Control disabled before execution");
-      completion = {device: current.device, id: command.id, result: await execute(command)};
+      completion = {device: current.device, id: command.id, result: await execute(command, current)};
     } catch (error) {
       completion = {device: current.device, id: command.id, error: (error.code ? error.code + ": " : "") + error.message};
     } finally { releaseExecution(); }
@@ -107,7 +107,7 @@ function waitForTab(tabId, timeout = 10000, options = {}) {
 }
 async function sendPage(tabId, op, args) {
   const requested = Number(args.timeoutMs ?? 5000);
-  const limit = op === "wait" ? Math.min(15000, Math.max(0, Number.isFinite(requested) ? requested : 5000)) + 1500 : 10000;
+  const limit = op === "webmcp_invoke" ? Math.min(15000, Math.max(1, Number(args.timeoutMs ?? 15000))) + 6500 : op === "wait" ? Math.min(15000, Math.max(0, Number.isFinite(requested) ? requested : 5000)) + 1500 : 10000;
   let timer;
   const deadline = {expired: false};
   try {
@@ -125,6 +125,11 @@ async function sendPageMessage(tabId, op, args, deadline) {
   };
   const options = {frameId: args.frameId ?? 0}, message = {type: "browser-bridge.command", engineVersion: browser.runtime.getManifest().version, op, args};
   let response;
+  if (op === "webmcp_discover" || op === "webmcp_invoke") {
+    for (const file of ["webmcp_settings.js", "webmcp_adapter.js"]) {
+      assertLive(); await browser.tabs.executeScript(tabId, {file, frameId: options.frameId, runAt: "document_start"});
+    }
+  }
   try { assertLive(); response = await browser.tabs.sendMessage(tabId, message, options); }
   catch (error) {
     if (!/receiving end|establish connection|message port|No matching message handler/i.test(error.message)) throw error;
@@ -143,7 +148,7 @@ async function sendPageMessage(tabId, op, args, deadline) {
     response = await browser.tabs.sendMessage(tabId, message, options);
   }
   if (response?.engineVersion && response.engineVersion !== message.engineVersion) throw Error("Page engine version mismatch; reload this tab");
-  if (response?.error) throw Object.assign(Error(response.error.message), {code: response.error.code});
+  if (response?.error) throw Object.assign(Error(response.error.message), {code: response.error.code, actionMayHaveOccurred: response.error.actionMayHaveOccurred, nextSteps: response.error.nextSteps});
   if (!response || !("result" in response)) throw Error("Page engine did not return a result");
   return response.result;
 }
@@ -182,19 +187,66 @@ async function desktopViewport(tab, args) {
     desktopOnly: true, affectsWindowTabs: true,
     ...(matched ? {} : {nextStep: "The browser did not reach the requested viewport. Use actual dimensions for this audit; do not claim the requested size was verified."})};
 }
-async function execute(command) {
+// Leases coordinate all broker connections inside this extension. They do not
+// isolate browser sessions or prevent the human from using the tab.
+const tabLeases = new Map();
+const leaseEpoch = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+let leaseSequence = 0;
+const LEASE_READS = new Set(["read", "inspect", "locate", "wait", "frames", "screenshot", "webmcp_discover"]);
+function leaseError(code, message) { return Object.assign(Error(message), {code}); }
+function liveLease(tabId) {
+  const lease = tabLeases.get(tabId);
+  if (lease && (lease.deadline <= performance.now() || !sessionCurrent(lease.owner))) {
+    tabLeases.delete(tabId); return null;
+  }
+  return lease;
+}
+function sameLeaseOwner(lease, current, args) {
+  return lease.owner.runtime === current?.runtime && lease.owner.connectionId === current?.connectionId &&
+    lease.workflowId === args.workflowId && lease.generation === args.leaseGeneration;
+}
+function leaseCommand(op, tabId, args, current) {
+  if (!current?.runtime || !current.connectionId || !authorized(current)) throw leaseError("LEASE_OWNER_REQUIRED", "Lease requires an authorized connection");
+  if (!Number.isInteger(args.tabId) || args.tabId < 0 || typeof args.workflowId !== "string" || !/^[A-Za-z0-9_.:-]{1,128}$/.test(args.workflowId)) throw leaseError("INVALID_ARGUMENT", "Lease requires explicit integer tabId and a workflowId of 1–128 identifier characters");
+  const existing = liveLease(tabId);
+  if (op === "release_lease") {
+    if (!existing || !sameLeaseOwner(existing, current, args)) throw leaseError("LEASE_STALE", "Lease expired or ownership changed; do not repeat an uncertain action");
+    tabLeases.delete(tabId); return {released: true, tabId};
+  }
+  const ttlMs = args.ttlMs ?? 30000;
+  if (!Number.isInteger(ttlMs) || ttlMs < 1 || ttlMs > 60000) throw leaseError("INVALID_ARGUMENT", "ttlMs must be an integer from 1 to 60000");
+  if (existing) {
+    if (!sameLeaseOwner(existing, current, args)) throw leaseError("TAB_LEASED", "Tab belongs to an active workflow; wait for release or expiry");
+    existing.deadline = performance.now() + ttlMs;
+    return {tabId, workflowId: existing.workflowId, leaseGeneration: existing.generation, expiresInMs: ttlMs};
+  }
+  if (args.leaseGeneration != null) throw leaseError("LEASE_STALE", "Expired leases cannot be renewed; reconcile before acquiring a new workflow");
+  for (const id of tabLeases.keys()) liveLease(id);
+  if (tabLeases.size >= 256) throw leaseError("LEASE_LIMIT", "Too many leased tabs; release a workflow first");
+  const lease = {owner: current, workflowId: args.workflowId, generation: `${leaseEpoch}:${++leaseSequence}`, deadline: performance.now() + ttlMs};
+  tabLeases.set(tabId, lease);
+  return {tabId, workflowId: lease.workflowId, leaseGeneration: lease.generation, expiresInMs: ttlMs};
+}
+function checkLease(op, tabId, args, current) {
+  const lease = liveLease(tabId), supplied = args.workflowId != null || args.leaseGeneration != null;
+  if (supplied && (!Number.isInteger(args.tabId) || !lease || !sameLeaseOwner(lease, current, args))) throw leaseError("LEASE_STALE", "Workflow lease is missing, expired or superseded; reconcile before acting");
+  if (lease && !LEASE_READS.has(op) && !sameLeaseOwner(lease, current, args)) throw leaseError("TAB_LEASED", "Tab is reserved by another workflow; wait for release or expiry");
+}
+async function execute(command, current) {
   const {op, args = {}} = command;
   if (!PAGE_OPERATIONS.has(op) && !TAB_OPERATIONS.has(op)) throw Error("Unsupported operation");
+  if (!globalThis.BrowserBridgeOperations?.validateArguments) throw Error("Operation contracts unavailable");
+  globalThis.BrowserBridgeOperations.validateArguments(op, args);
   if (op === "capabilities") return {version: browser.runtime.getManifest().version,
     operations: [...TAB_OPERATIONS, ...PAGE_OPERATIONS], transport: "HTTP long-poll", trustedEvents: false,
-    frames: typeof browser.webNavigation?.getAllFrames === "function", screenshot: typeof browser.tabs.captureTab === "function",
-    openShadowRoots: true, closedShadowRoots: false, nativeAndroidUI: false, foregroundAPI: {tabActivation: true, windowFocus: typeof browser.windows?.update === "function", androidOSForegroundGuaranteed: false}, parallelTabs: true, maxParallelCommands: MAX_EXECUTING, desktopViewport: {requiresDesktop: true, requiresWindowAPIs: true, calibrationAttempts: 2}};
+    webMCP: {experimental: true, defaultEnabled: false, probeOperation: "webmcp_discover", nativeSupport: "probe-per-document", fallback: "DOM"}, frames: typeof browser.webNavigation?.getAllFrames === "function", screenshot: typeof browser.tabs.captureTab === "function",
+    openShadowRoots: true, closedShadowRoots: false, nativeAndroidUI: false, foregroundAPI: {tabActivation: true, windowFocus: typeof browser.windows?.update === "function", androidOSForegroundGuaranteed: false}, workflowLeases: {maxTtlMs: 60000, crossBroker: true}, parallelTabs: true, maxParallelCommands: MAX_EXECUTING, desktopViewport: {requiresDesktop: true, requiresWindowAPIs: true, calibrationAttempts: 2}};
   if (op === "batch") {
     if (!Array.isArray(args.steps) || args.steps.length < 1 || args.steps.length > 25 || args.steps.some(step => step.op === "batch")) throw Error("batch requires 1–25 non-nested steps");
     const results = [];
     for (let index = 0; index < args.steps.length; index++) {
       const step = args.steps[index];
-      try { results.push({op: step.op, result: await execute({op: step.op, args: {...(args.tabId == null ? {} : {tabId: args.tabId}), ...step.args}})}); }
+      try { results.push({op: step.op, result: await execute({op: step.op, args: {...(args.tabId == null ? {} : {tabId: args.tabId}), ...(args.workflowId == null ? {} : {workflowId: args.workflowId, leaseGeneration: args.leaseGeneration}), ...step.args}}, current)}); }
       catch (error) { return {results, completed: results.length, error: {index, code: error.code || "ACTION_ERROR", message: error.message}}; }
     }
     return {results, completed: results.length};
@@ -207,6 +259,8 @@ async function execute(command) {
   }
   const tab = args.tabId != null ? await browser.tabs.get(Number(args.tabId)) : (await browser.tabs.query({active: true, currentWindow: true}))[0];
   if (!tab) throw Error("No active tab");
+  if (op === "acquire_lease" || op === "release_lease") return leaseCommand(op, tab.id, args, current);
+  checkLease(op, tab.id, args, current);
   if (op === "activate" || op === "foreground") {
     const activeTab = await browser.tabs.update(tab.id, {active: true});
     const windowId = activeTab?.windowId ?? tab.windowId;
@@ -255,6 +309,18 @@ async function execute(command) {
   }
   return await sendPage(tab.id, op, args);
 }
+const TERMINAL_RESULT_CODES = new Set(["COMMAND_EXPIRED", "RESULT_REJECTED"]);
+const REVOKED_CONNECTION_CODES = new Set(["DEVICE_REVOKED", "UNAUTHORIZED"]);
+function recordDeliveryFailure(runtime, entry, code) {
+  const failures = runtime.deliveryFailures ||= [];
+  failures.push({commandId: entry.payload.id, code, at: Date.now(), actionReplayed: false});
+  if (failures.length > 32) failures.shift();
+}
+function pauseRevokedConnection(runtime, code) {
+  runtime.paused = true;
+  runtime.error = `${code}: connection paused; pair again or replace its credential before enabling control.`;
+  stopConnection(runtime);
+}
 async function request(current, path, data) {
   const runtime = current.runtime;
   const urls = [...new Set(current.urls || [current.url])];
@@ -270,12 +336,22 @@ async function request(current, path, data) {
         method: "POST", headers: {Authorization: "Bearer " + current.token, "Content-Type": "application/json"},
         body: JSON.stringify(data), signal: controller.signal, cache: "no-store"
       });
-      if (!response.ok) throw Error(`Bridge HTTP ${response.status}`);
+      if (!response.ok) {
+        let body;
+        try { body = await response.json(); } catch (_) {}
+        const code = body?.code || body?.error?.code;
+        // Unknown/legacy errors remain retryable. Only an explicit protocol
+        // rejection can discard a report; never trust arbitrary error text.
+        const revoked = response.status >= 400 && response.status < 500 && REVOKED_CONNECTION_CODES.has(code);
+        const terminal = path === "/api/result" && response.status >= 400 && response.status < 500 && TERMINAL_RESULT_CODES.has(code);
+        throw Object.assign(Error(`Bridge HTTP ${response.status}${revoked || terminal ? ": " + code : ""}`),
+          {code: revoked || terminal ? code : undefined, revoked, terminal});
+      }
       const reply = await response.json();
       if (!sessionCurrent(current)) throw Error("Connection disabled or changed");
       if (runtime) runtime.endpoint = endpoint; else lastEndpoint = endpoint;
       return reply;
-    } catch (error) { failure = error; if (!sessionCurrent(current)) throw error; }
+    } catch (error) { failure = error; if (error.revoked || error.terminal || !sessionCurrent(current)) throw error; }
     finally { clearTimeout(timer); activeRequests.delete(controller); runtime?.requests.delete(controller); }
   }
   throw failure || Error("No reachable broker");
@@ -296,9 +372,15 @@ async function sendResults(runtime) {
       if (queue[0] === entry) { queue.shift(); finishOutstanding(entry.current); }
       backoff = 250; notifyTransport();
     } catch (error) {
-      if (authorized(entry.current)) {
-        runtime.error = error.message; await delay(backoff); backoff = Math.min(5000, backoff * 2);
+      if (!authorized(entry.current)) continue;
+      if (error.revoked || error.terminal) {
+        recordDeliveryFailure(runtime, entry, error.code);
+        if (error.revoked) { pauseRevokedConnection(runtime, error.code); break; }
+        if (queue[0] === entry) { queue.shift(); finishOutstanding(entry.current); }
+        backoff = 250; notifyTransport();
+        continue;
       }
+      runtime.error = error.message; await delay(backoff); backoff = Math.min(5000, backoff * 2);
     }
   }
 }
@@ -314,6 +396,7 @@ async function pollConnection(runtime) {
       if (reply.command) scheduleCommand(reply.command, current);
     } catch (error) {
       runtime.connected = false;
+      if (runtime.active && error.revoked) { pauseRevokedConnection(runtime, error.code); break; }
       if (runtime.active) { runtime.error = error.message; await delay(backoff); backoff = Math.min(5000, backoff * 2); }
       firstPoll = true;
     }
@@ -376,8 +459,9 @@ browser.runtime.onMessage.addListener(message => {
   try { profiles = profilesFor(config); } catch (_) {}
   const statuses = profiles.map(profile => {
     const runtime = connectionRuntimes.get(profile.id);
-    return typeof bridgeConnectionStatus === "function" ? bridgeConnectionStatus(profile, runtime) :
+    const status = typeof bridgeConnectionStatus === "function" ? bridgeConnectionStatus(profile, runtime) :
       {id: profile.id, name: profile.name, url: profile.url, device: profile.device, enabled: profile.enabled, connected: !!runtime?.connected, error: runtime?.error || "", endpoint: runtime?.endpoint || ""};
+    return {...status, paused: !!runtime?.paused, deliveryFailures: runtime?.deliveryFailures || []};
   });
   const online = statuses.find(status => status.connected);
   return Promise.resolve({connected: !!online, error: lastError || statuses.find(status => status.error)?.error || "", endpoint: online?.endpoint || "", enabled: config.enabled === true, connections: statuses});

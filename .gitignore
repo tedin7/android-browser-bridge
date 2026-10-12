@@ -6,3 +6,9 @@ __pycache__/
 *.zip
 signed-artifacts/
 node_modules/
+companion/.gradle/
+companion/**/build/
+companion/local.properties
+*.apk
+*.jks
+*.keystore

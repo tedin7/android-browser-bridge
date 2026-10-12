@@ -25,6 +25,26 @@ Firefox stabile è ancora necessaria la firma Mozilla.
 *Interfaccia reale renderizzata con collegamenti dimostrativi, non dati utente.*
 [Anteprima mobile](docs/images/connections-mobile.png).
 
+## Candidato runtime 1.0: stato della checkout
+
+Il sorgente corrente include il candidato **runtime 1.0**, ancora **non promosso
+come release**. Aggiunge registro delle operazioni, identità durevoli delle
+azioni, quote per client, recupero compatto dei risultati, lease delle schede,
+`browser_step` con verifica, osservazioni con delta e task recuperabili. Include
+adattatori opzionali WebMCP, MCP Apps, CLI e diagnostica CDP, più il
+[companion Android](companion/README.md) con APK release firmato. Il collaudo Firefox desktop
+ha verificato il workflow con lease, compilazione e verifica, oltre al delta delle
+osservazioni; questo non dimostra che il candidato sia già installato sul tablet
+o attivato come release stabile.
+
+I collegamenti di download restano sulla **0.3.1-dev** finché i gate di rilascio
+non sono completati. Il benchmark agentico con Codex/Claude è predisposto ma
+non è stato eseguito per questo candidato; firma Mozilla, marketplace e
+collaudo Android della nuova build non sono dichiarati completati.
+[Stato completo della roadmap](docs/RUNTIME_1_0_ROADMAP.md) ·
+[Gate e contatori di consumo](docs/RELEASE_GATE.md) ·
+[Adattatore JSON per orchestratori](docs/CLI_JSON.md).
+
 ## Meno contesto, anche per gli audit desktop
 
 Le risposte MCP sono compatte per default: read limita testo e controlli,

@@ -1,0 +1,25 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const ctx=vm.createContext({AbortController,setTimeout,clearTimeout});
+vm.runInContext(fs.readFileSync('extension/webmcp_adapter.js','utf8'),ctx);
+const win={}, schema={type:'object',properties:{query:{type:'string',maxLength:10}},required:['query'],additionalProperties:false};
+let executed=0,tool={name:'search',origin:'https://fixture.invalid',window:win,inputSchema:schema};
+const doc={location:{origin:tool.origin},modelContext:{getTools:async()=>[tool],executeTool:async(t,input)=>{executed++;return {query:input.query};}}};
+const config={enabled:true,allowedOrigins:[tool.origin],allowedToolNames:['search']};
+(async()=>{
+ assert.equal(ctx.createWebMCPAdapter(doc,win).probe().supported,false);
+ assert.equal(ctx.createWebMCPAdapter({location:doc.location},win,config).probe().nativeConsumerAPI,false);
+ const api=ctx.createWebMCPAdapter(doc,win,config);
+ assert.equal((await api.discover()).tools.length,1);
+ await assert.rejects(api.invoke({name:'search',input:{query:'x'},expectedSchema:{}}),e=>e.code==='WEBMCP_SCHEMA_CHANGED');
+ await assert.rejects(api.invoke({name:'search',input:{query:'x',extra:true},expectedSchema:schema}),e=>e.code==='WEBMCP_INVALID_INPUT');
+ assert.equal(executed,0);
+ const result=await api.invoke({name:'search',input:{query:'x'},expectedSchema:schema});assert.equal(result.result.query,'x');assert.equal(result.applicationVerified,false);assert.equal(executed,1);
+ tool={...tool,window:{}};assert.equal((await api.discover()).tools.length,0);
+ await assert.rejects(api.invoke({name:'search',input:{query:'x'},expectedSchema:schema}),e=>e.code==='WEBMCP_TARGET_UNAVAILABLE');
+ tool={...tool,window:win,inputSchema:{$ref:'https://untrusted.invalid/schema'}};
+ await assert.rejects(api.discover(),e=>e.code==='WEBMCP_SCHEMA_UNSUPPORTED');
+ tool={...tool,inputSchema:schema};doc.modelContext.executeTool=async()=>{executed++;return await new Promise(()=>{});};
+ await assert.rejects(api.invoke({name:'search',input:{query:'x'},expectedSchema:schema,timeoutMs:1}),e=>e.code==='WEBMCP_TIMEOUT'&&e.actionMayHaveOccurred);
+ assert.equal(executed,2);
+ console.log('PASS: WebMCP disabled default, native probe, origin/frame/tool scope, schema checks, bounded timeout and no replay.');
+})().catch(error=>{console.error(error);process.exitCode=1;});

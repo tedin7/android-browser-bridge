@@ -7,9 +7,9 @@ MODES = frozenset({"compact", "full", "fields"})
 PROTECTED = frozenset({
     "id", "tabId", "frameId", "parentFrameId", "device", "operation", "url",
     "documentId", "readyState", "viewport", "scroll", "before", "after", "window",
-    "elementCount", "count", "returned", "truncated", "nextOffset", "textLength", "textTruncated",
+    "backend", "package", "complete", "textLengthExact", "elementsComplete", "elementCount", "count", "returned", "truncated", "nextOffset", "textLength", "textTruncated",
     "offset", "textOffset", "nextTextOffset", "state", "status", "completed", "results",
-    "error", "code", "message", "nextSteps", "nextStep", "commandId", "timing",
+    "error", "code", "message", "nextSteps", "nextStep", "commandId", "actionId", "timing",
     "actionMayHaveOccurred", "retryableAfterRecovery", "localAndroid", "navigation",
     "verified", "verifiedVisible", "androidOSForegroundGuaranteed", "tabActivated",
     "windowFocusSupported", "windowFocusRequested", "windowFocused", "windowFocusError",
@@ -24,11 +24,12 @@ RESULT_FIELDS = PROTECTED | frozenset({
 })
 
 
-def response_options(arguments):
+def response_options(arguments, *, tool="browser_command"):
     """Validate before any browser action, including fields unavailable to this API."""
-    unknown = set(arguments) - {"device", "op", "args", "resultMode", "resultFields"}
+    allowed = {"device", "op", "args", "resultMode", "resultFields"} if tool == "browser_command" else {"id", "actionId", "waitMs", "resultMode", "resultFields"}
+    unknown = set(arguments) - allowed
     if unknown:
-        raise ValueError("INVALID_ARGUMENT: Unknown browser_command argument")
+        raise ValueError("INVALID_ARGUMENT: Unknown " + tool + " argument")
     mode = arguments.get("resultMode", "compact")
     if not isinstance(mode, str) or mode not in MODES:
         raise ValueError("INVALID_ARGUMENT: resultMode must be compact, full or fields")
@@ -52,9 +53,11 @@ def prepare_arguments(operation, arguments, mode):
             values.setdefault("textLimit", 2000)
             values.setdefault("maxElements", 20)
             values.setdefault("selectors", False)
+            values.setdefault("responseFields", ["accessibleName", "name", "type", "href", "checked"] + (["selector"] if values.get("selectors") else []))
         elif operation == "locate":
             values.setdefault("maxElements", 20)
             values.setdefault("selectors", False)
+            values.setdefault("responseFields", ["accessibleName", "name", "type", "href", "checked"] + (["selector"] if values.get("selectors") else []))
         elif operation == "batch" and isinstance(values.get("steps"), list):
             steps = []
             for step in values["steps"]:
@@ -167,3 +170,13 @@ def image_content(operation, result):
         return value
     metadata = visit(operation, result)
     return images, metadata
+
+
+def serialize_result(operation, result, mode="compact", fields=None, arguments=None, envelope=None):
+    """One multimodal representation for immediate results and recovered receipts."""
+    import json
+    images, metadata = image_content(operation, result)
+    projected = project_response(operation, metadata, mode, fields, arguments)
+    if envelope is not None:
+        projected = {**envelope, "result": projected}
+    return {"content": [*images, {"type": "text", "text": json.dumps(projected, ensure_ascii=False, separators=(",", ":"))}]}

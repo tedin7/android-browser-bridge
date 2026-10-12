@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Install Browser Bridge and optionally register Codex using discovered settings."""
 import argparse
+from contextlib import contextmanager
+import io
+import re
+import stat
 import fcntl
 import hmac
 import http.client
@@ -403,23 +407,102 @@ def ensure_persistent_broker(target, args, profile_file=None):
         os.close(descriptor)
 
 
-def _install_package(root, destination):
-    destination.mkdir(parents=True, exist_ok=True)
+PACKAGE_NAME = "android-browser-mcp.pyz"
+PACKAGE_MEMBERS = {"__main__.py", "launcher.py", "mcp_server.py", "bridge.py"}
+
+
+def _package_bytes(path, validate=True):
+    descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+    with os.fdopen(descriptor, "rb") as stream:
+        metadata = os.fstat(stream.fileno())
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > 64*1024*1024:
+            raise ValueError("Package must be a bounded regular file, not a symlink")
+        data = stream.read(64*1024*1024+1)
+    if len(data) > 64*1024*1024:
+        raise ValueError("Package exceeds size limit")
+    if validate:
+        try:
+            with ZipFile(io.BytesIO(data)) as archive:
+                entries = archive.infolist()
+                names = [entry.filename for entry in entries]
+                if not PACKAGE_MEMBERS.issubset(names) or len(names) != len(set(names)) or len(names) > 4096 or sum(entry.file_size for entry in entries) > 256*1024*1024:
+                    raise ValueError("Package is incomplete or exceeds archive limits")
+                if any(name.startswith(("/", "\\")) or "\\" in name or ".." in name.split("/") for name in names):
+                    raise ValueError("Invalid package member path")
+                if archive.testzip() is not None:
+                    raise ValueError("Package checksum verification failed")
+        except BadZipFile:
+            raise ValueError("Invalid package archive") from None
+    return data
+
+
+@contextmanager
+def _package_lock(destination, create=True):
+    if create:
+        destination.mkdir(parents=True, exist_ok=True)
     descriptor = os.open(destination / "package.lock", os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
-    target = destination / "android-browser-mcp.pyz"
-    staging = destination / (target.name + ".tmp-" + secrets.token_hex(4))
     try:
         os.fchmod(descriptor, 0o600)
         fcntl.flock(descriptor, fcntl.LOCK_EX)
-        # Concurrent installers must not read a partially rebuilt zipapp.
-        subprocess.run([sys.executable, str(root / "build.py")], check=True, stdout=sys.stderr)
-        shutil.copy2(root / target.name, staging)
-        os.replace(staging, target)
+        yield
     finally:
-        staging.unlink(missing_ok=True)
         fcntl.flock(descriptor, fcntl.LOCK_UN)
         os.close(descriptor)
+
+
+def _write_package(path, data, replace=False):
+    staging = path.with_name(path.name + ".tmp-" + secrets.token_hex(8))
+    descriptor = os.open(staging, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        if replace:
+            os.replace(staging, path)
+        else:
+            os.link(staging, path)  # Never overwrite a retained backup.
+        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        staging.unlink(missing_ok=True)
+
+
+def _backup_package(target):
+    if not target.exists() and not target.is_symlink():
+        return None
+    data = _package_bytes(target, validate=False)
+    backup = target.with_name(target.name + ".bak-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + secrets.token_hex(8))
+    _write_package(backup, data)
+    return backup
+
+
+def _install_package(root, destination):
+    target = destination / PACKAGE_NAME
+    with _package_lock(destination):
+        subprocess.run([sys.executable, str(root / "build.py")], check=True, stdout=sys.stderr)
+        data = _package_bytes(root / PACKAGE_NAME)
+        _backup_package(target)
+        _write_package(target, data, replace=True)
     return target
+
+
+def rollback_package(backup):
+    destination = Path.home() / ".local/share/android-browser-bridge"
+    backup = Path(backup).expanduser().absolute()
+    if backup.parent.resolve() != destination.resolve() or not re.fullmatch(re.escape(PACKAGE_NAME) + r"\.bak-[0-9]{8}T[0-9]{6}Z-[a-f0-9]{16}", backup.name):
+        raise ValueError("Select an installer-created package backup from the standard package directory")
+    if backup.is_symlink() or not backup.is_file():
+        raise ValueError("Backup must be an existing regular file, not a symlink")
+    target = destination / PACKAGE_NAME
+    with _package_lock(destination, create=False):
+        data = _package_bytes(backup)
+        preserved = _backup_package(target)
+        _write_package(target, data, replace=True)
+    return {"restored": str(target), "source": str(backup), "backup": str(preserved) if preserved else None}
 
 
 def main():
@@ -427,12 +510,19 @@ def main():
     parser.add_argument("--codex", action="store_true", help="Discover the connection and register this MCP automatically in Codex")
     parser.add_argument("--claude", action="store_true", help="Discover the connection and register this MCP automatically in Claude Code")
     parser.add_argument("--auto", action="store_true", help="Reuse a private profile or discover existing Browser Bridge settings")
+    parser.add_argument("--scoped-clients", action="store_true", help="Give Codex and Claude separate device-scoped credentials; requires a paired 1.0 broker")
     parser.add_argument("--url", help="Address reachable from Android; optionally different from the attached broker address")
     parser.add_argument("--attach", help="Generate an MCP client for an already-running broker")
     parser.add_argument("--token-file", help="Existing private admin token file; required with --attach")
     parser.add_argument("--listen", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=None, help="Owner port; automatic Codex bootstrap chooses a free port by default")
+    parser.add_argument("--rollback-package", metavar="BACKUP", help="Restore one validated installer-created package backup; leave credentials and configuration untouched")
     args = parser.parse_args()
+    if args.rollback_package:
+        if args.codex or args.claude or args.auto or args.scoped_clients or args.url or args.attach or args.token_file or args.port is not None or args.listen != "127.0.0.1":
+            parser.error("--rollback-package must be used without installation or registration options")
+        print(json.dumps(rollback_package(args.rollback_package), separators=(",", ":")))
+        return
     if args.url:
         validate_origin(args.url)
     if args.attach and not args.token_file:
@@ -494,7 +584,11 @@ def main():
         command = [executable, "mcp", "add", name]
         for key, value in sorted(bindings.items()):
             command += ["--env", f"{key}={value}"]
-        command += ["--", sys.executable, *command_args]
+        codex_args=command_args
+        if args.scoped_clients:
+            from client_registration import scoped_profile
+            codex_args=[str(target),"--connection-file",str(scoped_profile(profile_file,"codex"))]
+        command += ["--", sys.executable, *codex_args]
         result = subprocess.run(command, capture_output=True, text=True, check=False)
         if result.returncode:
             raise RuntimeError("Codex MCP registration failed; the previous private configuration backup is preserved")
@@ -503,7 +597,11 @@ def main():
         guidance_installed = isinstance(guidance, dict) and bool(guidance)
         print(f"Codex MCP registered: {name}. " + ("Existing browser connection reused." if existing_connection else "Persistent broker ready for initial browser pairing.") + (" Browser task guidance installed." if guidance_installed else ""))
     if args.claude:
-        name = register_claude(server_config)
+        claude_config=server_config
+        if args.scoped_clients:
+            from client_registration import scoped_profile
+            claude_config={**server_config,"args":[str(target),"--connection-file",str(scoped_profile(profile_file,"claude"))]}
+        name = register_claude(claude_config)
         from agent_integration import install_claude_guidance
         install_claude_guidance()
         print(f"Claude Code MCP registered: {name}. Persistent broker ready. Browser task guidance installed.")

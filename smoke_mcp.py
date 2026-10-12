@@ -53,7 +53,7 @@ def main():
         try:
             result = rpc(1, "initialize", {"protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "smoke", "version": "1"}})
             assert result["serverInfo"]["name"] == "android-browser-bridge"
-            assert len(rpc(2, "tools/list", {})["tools"]) == 6
+            assert {tool["name"] for tool in rpc(2, "tools/list", {})["tools"]} == {"browser_devices", "browser_command", "browser_status", "browser_pair", "browser_revoke", "browser_metrics", "browser_step", "browser_observe", "browser_task", "browser_contract"}
             pair = rpc(3, "tools/call", {"name": "browser_pair", "arguments": {"device": "test-tablet"}})
             assert not pair.get("isError"), pair
             bundle = json.loads(pair["content"][0]["text"])

@@ -6,6 +6,7 @@ const ctx=vm.createContext({URL,AbortController,setTimeout,clearTimeout,performa
  tabs:{get:async()=>tab}, windows:{get:async()=>({width,height}),update:async(id,args)=>{assert.equal(id,2);updates++;width=args.width;height=args.height;}},
  runtime:{getPlatformInfo:async()=>({os}),getManifest:()=>({version:'0.3.1'}),onMessage:{addListener(){}},onInstalled:{addListener(){}}},
  storage:{onChanged:{addListener(){}}},browserAction:{onClicked:{addListener(){}}}}});
+vm.runInContext(fs.readFileSync('extension/operations.generated.js','utf8'),ctx);
 vm.runInContext(fs.readFileSync('extension/background.js','utf8').replace(/loop\(\);\s*$/,''),ctx);
 ctx.sendPage=async(id,op,args)=>{assert.equal(op,'read');assert.equal(args.text,false);assert.equal(args.maxElements,0);return {viewport:{width:freeze?1060:width-40,height:freeze?710:height-90}};};
 (async()=>{

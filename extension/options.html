@@ -40,8 +40,19 @@
         <div class="control-note"><span aria-hidden="true">◌</span><p data-i18n="controlNote">Hai sempre l’ultima parola: metti in pausa un server, rimuovilo o sospendi tutto il controllo con un tocco. Un’azione già avviata potrebbe completarsi.</p></div>
       </section>
     </div>
+    <section class="panel" aria-labelledby="webmcp-heading">
+      <h2 id="webmcp-heading">WebMCP sperimentale</h2><p id="webmcp-help"></p>
+      <form id="webmcp-config">
+        <label class="consent"><input id="webmcp-enabled" type="checkbox"><span id="webmcp-enabled-label"></span></label>
+        <label class="field"><span id="webmcp-origins-label"></span><textarea id="webmcp-origins" rows="3" maxlength="8192" placeholder="https://example.org" spellcheck="false"></textarea></label>
+        <label class="field"><span id="webmcp-names-label"></span><textarea id="webmcp-names" rows="3" maxlength="8192" placeholder="search" spellcheck="false"></textarea></label>
+        <button id="webmcp-save" class="button button-secondary" type="submit"></button>
+        <p id="webmcp-status" class="notice" role="status" aria-live="polite"></p>
+      </form>
+    </section>
     <footer><span data-i18n="footer">Il controllo parte solo con la tua autorizzazione.</span><a href="privacy.html" target="_blank" rel="noopener" data-i18n="privacy">Privacy e dati trasferiti</a></footer>
   </main>
   <script src="connection.js"></script><script src="connections.js"></script><script src="options.js"></script>
+  <script src="webmcp_settings.js"></script><script src="webmcp_options.js"></script>
 </body>
 </html>

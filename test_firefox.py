@@ -133,6 +133,36 @@ def main():
                     assert replies[1]['result'].get('isError')
                     print('PASS: page B completes while page A waits.',flush=True)
                 run_suite(operation, fixture_url, concurrent, progress=True)
+                workflow_tab=operation('open',{'url':fixture_url,'waitUntil':'complete'})['id']
+                try:
+                    receipt=tool('browser_step',{'device':'fixture','plan':{'tabId':workflow_tab,'steps':[{'op':'fill','args':{'selector':'#text','value':'verified workflow'}}],'verify':[{'kind':'value','args':{'selector':'#text'},'expected':'verified workflow'}]}})
+                    assert receipt['state']=='verified', receipt
+                    first=tool('browser_observe',{'device':'fixture','tabId':workflow_tab,'args':{'selector':'#click-status','maxElements':0}})
+                    operation('click',{'tabId':workflow_tab,'selector':'#click'})
+                    delta=tool('browser_observe',{'device':'fixture','tabId':workflow_tab,'args':{'selector':'#click-status','maxElements':0},'snapshotId':first['snapshotId']})
+                    assert delta['mode']=='delta' and delta['changed']['text']=='clicks:1', delta
+                    task=tool('browser_task',{'action':'start','device':'fixture','plan':{'tabId':workflow_tab,'steps':[{'op':'fill','args':{'selector':'#text','value':'durable task'}}],'verify':[{'kind':'value','args':{'selector':'#text'},'expected':'durable task'}]}})
+                    task_deadline=time.monotonic()+10
+                    while task['state']=='working' and time.monotonic()<task_deadline:
+                        time.sleep(.05)
+                        task=tool('browser_task',{'action':'get','taskId':task['taskId']})
+                    assert task['state']=='completed' and task['receipt']['verified'],task
+                    meta={'io.modelcontextprotocol/protocolVersion':'2026-07-28','io.modelcontextprotocol/clientCapabilities':{'extensions':{'io.modelcontextprotocol/tasks':{}}}}
+                    discovery=rpc('server/discover',{'_meta':meta})
+                    assert 'io.modelcontextprotocol/tasks' in discovery['capabilities']['extensions'],discovery
+                    modern=rpc('tools/call',{'_meta':meta,'name':'browser_step','arguments':{'device':'fixture','plan':{'tabId':workflow_tab,'steps':[{'op':'fill','args':{'selector':'#text','value':'modern task'}}],'verify':[{'kind':'value','args':{'selector':'#text'},'expected':'modern task'}]}}})
+                    assert modern['resultType']=='task',modern
+                    task_deadline=time.monotonic()+10
+                    while modern['status']=='working' and time.monotonic()<task_deadline:
+                        time.sleep(.05)
+                        modern=rpc('tasks/get',{'_meta':meta,'taskId':modern['taskId']})
+                    assert modern['status']=='completed',modern
+                    result=json.loads(modern['result']['content'][0]['text'])
+                    assert result['state']=='verified',result
+                    resources=rpc('resources/list',{'_meta':meta})
+                    assert resources['resources'][0]['uri']=='ui://android-browser-bridge/task-panel',resources
+                    print('PASS: real browser_step, observation delta, durable task and modern MCP Tasks result recovery.',flush=True)
+                finally: operation('close',{'tabId':workflow_tab})
                 tool("browser_revoke", {"device": "fixture"})
                 print("PASS: real Firefox + real extension + packaged stdio MCP. Android is NOT tested.", flush=True)
             except Exception:

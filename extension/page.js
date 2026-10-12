@@ -1,18 +1,18 @@
 /* Resident fixed-operation engine. No remotely supplied scripts or expressions. */
 (() => {
-  if (globalThis.__browserBridgePageVersion === "0.3.1") return;
+  if (globalThis.__browserBridgePageVersion === "1.0.0") return;
   if (globalThis.__browserBridgePageListener) browser.runtime.onMessage.removeListener(globalThis.__browserBridgePageListener);
-  const engineVersion = "0.3.1";
+  const engineVersion = "1.0.0";
   globalThis.__browserBridgePageVersion = engineVersion;
   const epoch = Math.random().toString(36).slice(2, 10);
   let nextRef = 0;
   const identities = new WeakMap(), references = new Map();
-  const pageOps = new Set(["read", "inspect", "locate", "click", "double_click", "hover", "focus", "fill", "type", "clear", "select", "check", "press", "scroll", "wait", "click_point", "drag"]);
+  const pageOps = new Set(["read", "inspect", "locate", "click", "double_click", "hover", "focus", "fill", "type", "clear", "select", "check", "press", "scroll", "wait", "click_point", "drag", "webmcp_discover", "webmcp_invoke"]);
   function fail(code, message) { const error = Error(message); error.code = code; throw error; }
-  function reference(el) {
+  function reference(el, observedName) {
     let ref = identities.get(el);
     if (!ref) { ref = epoch + "-e" + ++nextRef; identities.set(el, ref); }
-    references.set(ref, new WeakRef(el));
+    if (!references.has(ref) || observedName !== undefined) references.set(ref, {node: new WeakRef(el), role: roleOf(el), type: el.type, name: observedName});
     if (references.size > 4096) references.delete(references.keys().next().value);
     return ref;
   }
@@ -58,8 +58,10 @@
   function find(args) {
     let elements;
     if (args.ref) {
-      const el = references.get(args.ref)?.deref();
+      const previous = references.get(args.ref);
+      const el = previous?.node.deref();
       if (!el || !el.isConnected) fail("STALE_REFERENCE", "Element reference is stale; read or locate the page again");
+      if (roleOf(el) !== previous.role || el.type !== previous.type || (previous.name !== undefined && accessibleName(el).slice(0, 180) !== previous.name)) fail("STALE_REFERENCE", "Observed target semantics changed; locate and confirm the current control again");
       elements = [el];
     } else if (typeof args.selector === "string" && args.selector.trim()) {
       const parts = args.selector.split(/\s*>>>\s*/);
@@ -92,8 +94,8 @@
     if (matches.length !== 1) fail("NOT_UNIQUE", `Selector must match one element; matched ${matches.length}`);
     return matches[0];
   }
-  function visible(el) {
-    const style = getComputedStyle(el), rect = el.getBoundingClientRect();
+  function visible(el, measuredRect = null) {
+    const style = getComputedStyle(el), rect = measuredRect && typeof measuredRect === "object" ? measuredRect : el.getBoundingClientRect();
     return el.isConnected && style.display !== "none" && style.visibility !== "hidden" && style.visibility !== "collapse" && rect.width > 0 && rect.height > 0;
   }
   function enabled(el) { return !el.matches(":disabled") && el.getAttribute("aria-disabled") !== "true"; }
@@ -127,17 +129,28 @@
     const own = parts.join(" > ");
     return root.host ? selectorFor(root.host, siblingCache) + " >>> " + own : own;
   }
-  function describe(el, cache = new WeakMap(), selectors = true) {
+  const descriptorFields = new Set(["ref", "tag", "role", "accessibleName", "text", "visible", "enabled", "rect", "selector", "type", "name", "href", "checked"]);
+  function selectedResponseFields(args) {
+    if (args.responseFields === undefined) return null;
+    if (!Array.isArray(args.responseFields) || args.responseFields.length > descriptorFields.size || args.responseFields.some(field => typeof field !== "string" || !descriptorFields.has(field))) fail("INVALID_ARGUMENT", "responseFields must contain known element descriptor fields");
+    return new Set(args.responseFields);
+  }
+  function describe(el, cache = new WeakMap(), selectors = true, fields = null) {
+    const wants = field => fields === null || fields.has(field);
     const rect = el.getBoundingClientRect();
-    const label = el.getAttribute("aria-label") || (el.labels ? [...el.labels].map(label => label.textContent).join(" ") : "");
-    const result = {ref: reference(el), tag: el.tagName.toLowerCase(), role: roleOf(el), accessibleName: accessibleName(el).slice(0, 180),
-      text: (label || el.innerText || "").trim().slice(0, 180), visible: visible(el), enabled: enabled(el),
-      rect: {x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height)}};
-    if (selectors) result.selector = selectorFor(el, cache);
-    if (el.type) result.type = el.type;
-    if (el.name) result.name = el.name;
-    if (el.href) result.href = el.getAttribute("href");
-    if (typeof el.checked === "boolean") result.checked = el.checked;
+    const observedName = wants("accessibleName") ? accessibleName(el).slice(0, 180) : undefined;
+    const result = {ref: reference(el, observedName), tag: el.tagName.toLowerCase(), role: roleOf(el), visible: visible(el, rect), enabled: enabled(el)};
+    if (wants("accessibleName")) result.accessibleName = observedName;
+    if (wants("text")) {
+      const label = el.getAttribute("aria-label") || (el.labels ? [...el.labels].map(label => label.textContent).join(" ") : "");
+      result.text = (label || el.innerText || "").trim().slice(0, 180);
+    }
+    if (wants("rect")) result.rect = {x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height)};
+    if (selectors && wants("selector")) result.selector = selectorFor(el, cache);
+    if (wants("type") && el.type) result.type = el.type;
+    if (wants("name") && el.name) result.name = el.name;
+    if (wants("href") && el.href) result.href = el.getAttribute("href");
+    if (wants("checked") && typeof el.checked === "boolean") result.checked = el.checked;
     return result;
   }
   function viewportInfo() {
@@ -315,6 +328,20 @@
   }
   async function execute(op, args = {}) {
     if (!pageOps.has(op)) fail("UNSUPPORTED_OPERATION", "Unsupported page operation");
+    if (args.expectedDocumentId !== undefined && args.expectedDocumentId !== epoch) fail("STALE_REFERENCE", "Document changed; observe the current page before acting");
+    const responseFields = op === "read" || op === "locate" ? selectedResponseFields(args) : null;
+    if (op === "webmcp_discover" || op === "webmcp_invoke") {
+      if (typeof createWebMCPAdapter !== "function" || typeof normalizeWebMCPSettings !== "function") fail("WEBMCP_ADAPTER_MISSING", "Reload this tab to load the fixed WebMCP adapter");
+      const stored = await browser.storage.local.get(["webmcp"]);
+      const adapter = createWebMCPAdapter(document, window, {...normalizeWebMCPSettings(stored.webmcp), beforeInvoke: async toolName => {
+        const latest = normalizeWebMCPSettings((await browser.storage.local.get(["webmcp"])).webmcp);
+        if (!latest.enabled || !latest.allowedOrigins.includes(document.location.origin) || !latest.allowedToolNames.includes(toolName)) fail("WEBMCP_DISABLED", "WebMCP permission was removed before invocation");
+      }});
+      const capability = adapter.probe();
+      if (op === "webmcp_discover" && !capability.supported) return {capability, tools: [], documentId: epoch, fallback: "DOM"};
+      const result = op === "webmcp_discover" ? await adapter.discover() : await adapter.invoke({name: args.toolName, input: args.input, expectedSchema: args.expectedSchema, timeoutMs: args.timeoutMs});
+      return {...result, documentId: epoch};
+    }
     if (op === "click_point" || op === "drag") return coordinateAction(op, args);
     if (op === "wait") {
       const timeout = Math.min(15000, Math.max(0, Number(args.timeoutMs ?? 5000))), state = args.state || "visible";
@@ -342,19 +369,19 @@
       const text = args.text === false ? "" : root.innerText || root.textContent || "";
       const selector = "a,button,input,textarea,select,[role=button],[role=textbox],[contenteditable=true],summary";
       const candidates = [], roots = [root];
-      if (root.matches?.(selector)) candidates.push(root);
-      for (let i = 0; i < roots.length; i++) {
+      if (max > 0 && root.matches?.(selector)) candidates.push(root);
+      for (let i = 0; max > 0 && i < roots.length; i++) {
         for (const el of roots[i].querySelectorAll(selector)) candidates.push(el);
         for (const el of roots[i].querySelectorAll("*")) if (el.shadowRoot) roots.push(el.shadowRoot);
       }
       const selected = args.includeHidden ? candidates : candidates.filter(visible);
       return {url: location.href, title: document.title, readyState: document.readyState,
         text: text.slice(textOffset, textOffset + limit), textLength: text.length, textTruncated: textOffset + limit < text.length,
-        elements: selected.slice(offset, offset + max).map(el => describe(el, cache, args.selectors !== false)),
-        elementCount: selected.length, nextOffset: offset + max < selected.length ? offset + max : null,
+        elements: selected.slice(offset, offset + max).map(el => describe(el, cache, args.selectors !== false, responseFields)),
+        elementCount: max > 0 ? selected.length : null, ...(max === 0 ? {elementsComplete: false} : {}), nextOffset: offset + max < selected.length ? offset + max : null,
         scroll: position(window), viewport: viewportInfo(), documentId: epoch};
     }
-    if (op === "locate") { const matches = find(args), cache = new WeakMap(); return {count: matches.length, elements: matches.slice(0, Math.min(500, Math.max(0, Number(args.maxElements ?? 100)))).map(el => describe(el, cache, args.selectors !== false))}; }
+    if (op === "locate") { const matches = find(args), cache = new WeakMap(); return {count: matches.length, elements: matches.slice(0, Math.min(500, Math.max(0, Number(args.maxElements ?? 100)))).map(el => describe(el, cache, args.selectors !== false, responseFields))}; }
     if (op === "scroll") {
       const target = args.selector || args.ref || semanticArgs(args) ? one(args) : window, before = position(target);
       const mode = args.mode || "relative", behavior = args.behavior || "instant";
@@ -466,7 +493,7 @@
   const listener = message => {
     if (message?.type !== "browser-bridge.command" || globalThis.__browserBridgePageVersion !== engineVersion) return undefined;
     if (message.engineVersion && message.engineVersion !== engineVersion) return Promise.resolve({engineVersion, error: {code: "ENGINE_VERSION_MISMATCH", message: "Reload this tab to update the page interaction engine"}});
-    return execute(message.op, message.args || {}).then(result => ({engineVersion, result})).catch(error => ({engineVersion, error: {code: error.code || "PAGE_ERROR", message: error.message}}));
+    return execute(message.op, message.args || {}).then(result => ({engineVersion, result})).catch(error => ({engineVersion, error: {code: error.code || "PAGE_ERROR", message: error.message, ...(typeof error.actionMayHaveOccurred === "boolean" ? {actionMayHaveOccurred: error.actionMayHaveOccurred} : {}), ...(error.nextSteps ? {nextSteps: error.nextSteps} : {})}}));
   };
   globalThis.__browserBridgePageListener = listener;
   browser.runtime.onMessage.addListener(listener);

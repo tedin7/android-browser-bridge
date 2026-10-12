@@ -1,0 +1,22 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+let handler,stored={},actions=0;
+const window={},schema={type:'object',properties:{query:{type:'string'}},required:['query'],additionalProperties:false};
+const document={location:{origin:'https://fixture.invalid'}};
+const browser={storage:{local:{get:async()=>structuredClone(stored)}},runtime:{onMessage:{addListener:fn=>handler=fn,removeListener(){}}}};
+const ctx=vm.createContext({document,window,browser,URL,AbortController,setTimeout,clearTimeout});
+for(const file of ['webmcp_settings.js','webmcp_adapter.js','page.js'])vm.runInContext(fs.readFileSync('extension/'+file,'utf8'),ctx);
+const call=(op,args={})=>handler({type:'browser-bridge.command',engineVersion:ctx.__browserBridgePageVersion,op,args});
+(async()=>{
+ let result=await call('webmcp_discover');assert.equal(result.result.capability.nativeConsumerAPI,false);assert.equal(result.result.fallback,'DOM');
+ document.modelContext={getTools:async()=>[{name:'search',origin:document.location.origin,window,inputSchema:schema}],executeTool:async()=>{actions++;return 'done';}};
+ result=await call('webmcp_invoke',{toolName:'search',input:{query:'x'},expectedSchema:schema,enabled:true,allowedOrigins:[document.location.origin]});assert.equal(result.error.code,'WEBMCP_DISABLED');assert.equal(actions,0);
+ stored={webmcp:{enabled:true,allowedOrigins:[document.location.origin],allowedToolNames:['search']}};
+ result=await call('webmcp_discover');assert.equal(result.result.tools.length,1);assert(result.result.documentId);
+ result=await call('webmcp_invoke',{toolName:'search',input:{query:'x'},expectedSchema:schema});assert.equal(result.result.state,'executed');assert.equal(actions,1);
+ stored.webmcp.enabled=false;
+ result=await call('webmcp_invoke',{toolName:'search',input:{query:'x'},expectedSchema:schema});assert.equal(result.error.code,'WEBMCP_DISABLED');assert.equal(actions,1);
+ assert.throws(()=>ctx.normalizeWebMCPSettings({enabled:true,allowedOrigins:['https://example.org/path'],allowedToolNames:['search']}));
+ assert.throws(()=>ctx.normalizeWebMCPSettings({enabled:true,allowedOrigins:['https://example.org'],allowedToolNames:['*']}));
+ assert.throws(()=>ctx.normalizeWebMCPSettings({enabled:true,allowedOrigins:[],allowedToolNames:[]}));
+ console.log('PASS: resident WebMCP dispatch uses local storage authorization, ignores remote setting injection and falls back when native API is absent.');
+})().catch(error=>{console.error(error);process.exitCode=1;});

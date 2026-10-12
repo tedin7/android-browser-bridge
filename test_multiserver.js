@@ -5,6 +5,7 @@ const a={id:'alpha',name:'Alpha',url:'http://127.0.0.1:19471',urls:['http://127.
 const b={id:'beta',name:'Beta',url:'http://127.0.0.1:19472',urls:['http://127.0.0.1:19472'],token:'fixture-token-beta',device:'device-beta',enabled:true};
 let store={connections:[a,b],enabled:true},changed,statusHandler;
 const queues=new Map([[a.url,[]],[b.url,[]]]),pending=new Map(),offline=new Set(),reports=[],executed=[],aborted=new Map(),requested=[],resolvers=new Map();
+const rejections=new Map(), attempts=new Map();
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function until(predicate,label){const end=Date.now()+1500;while(!predicate()){if(Date.now()>end)throw Error('Timeout: '+label);await sleep(5);}}
 function deliver(origin,command){const request=pending.get(origin);if(request){pending.delete(origin);request.resolve({ok:true,status:200,json:async()=>({command})});}else queues.get(origin).push(command);}
@@ -17,7 +18,11 @@ const context=vm.createContext({URL,AbortController,AbortSignal,setTimeout,clear
  const payload=JSON.parse(options.body);assert.equal(payload.device,profile.device);
  requested.push({origin,path:new URL(url).pathname,id:payload.id});
  if(offline.has(origin))throw Error('Offline fixture broker');
- if(url.endsWith('/api/result')){reports.push({origin,payload});return {ok:true,status:200,json:async()=>({ok:true})};}
+ if(url.endsWith('/api/result')){
+  attempts.set(payload.id,(attempts.get(payload.id)||0)+1);
+  const rejection=rejections.get(payload.id);
+  if(rejection){if(rejection.once)rejections.delete(payload.id);return {ok:false,status:rejection.status,json:async()=>rejection.body};}
+  reports.push({origin,payload});return {ok:true,status:200,json:async()=>({ok:true})};}
  assert(url.endsWith('/api/poll'));
  const queue=queues.get(origin);if(queue.length)return {ok:true,status:200,json:async()=>({command:queue.shift()})};
  return await new Promise((resolve,reject)=>{pending.set(origin,{resolve,reject});options.signal.addEventListener('abort',()=>{if(pending.get(origin)?.resolve===resolve)pending.delete(origin);aborted.set(origin,(aborted.get(origin)||0)+1);reject(Error('Aborted fixture request'));},{once:true});});
@@ -34,6 +39,36 @@ context.execute=async request=>{executed.push(request.id);if(request.args.block)
  assert.equal(reports.find(item=>item.origin===a.url).payload.result.fixture,'from-alpha');
  assert.equal(reports.find(item=>item.origin===b.url).payload.result.fixture,'from-beta');
  await until(()=>pending.has(a.url)&&pending.has(b.url),'second independent polls');
+ // A terminal refusal must release the next report without re-running its action.
+ rejections.set('expired-result',{status:410,body:{code:'COMMAND_EXPIRED',error:'expired'}});
+ deliver(a.url,command('expired-result',1));deliver(a.url,command('after-expired',1));
+ await until(()=>reports.some(item=>item.payload.id==='after-expired'),'terminal report does not block successor');
+ assert.equal(attempts.get('expired-result'),1);
+ assert.equal(executed.filter(id=>id==='expired-result').length,1);
+ let diagnostic=(await statusHandler({type:'status'})).connections.find(item=>item.id===a.id);
+ assert.equal(diagnostic.deliveryFailures.at(-1).code,'COMMAND_EXPIRED');
+ assert.equal(diagnostic.deliveryFailures.at(-1).actionReplayed,false);
+ // Generic errors from old brokers and 5xx errors retry delivery, never execution.
+ rejections.set('legacy-retry',{status:404,body:{error:'unknown command'},once:true});
+ deliver(a.url,command('legacy-retry',1));
+ await until(()=>reports.some(item=>item.payload.id==='legacy-retry'),'legacy rejection retries conservatively');
+ assert.equal(attempts.get('legacy-retry'),2);assert.equal(executed.filter(id=>id==='legacy-retry').length,1);
+ rejections.set('temporary-retry',{status:503,body:{code:'COMMAND_EXPIRED'},once:true});
+ deliver(a.url,command('temporary-retry',1));
+ await until(()=>reports.some(item=>item.payload.id==='temporary-retry'),'5xx cannot discard report');
+ assert.equal(attempts.get('temporary-retry'),2);
+ // Explicit revoked credentials pause only that connection and expose recovery.
+ rejections.set('revoked-result',{status:401,body:{code:'DEVICE_REVOKED'}});
+ deliver(a.url,command('revoked-result',1));
+ await until(()=>attempts.has('revoked-result'),'revoked delivery attempted');await sleep(20);
+ diagnostic=(await statusHandler({type:'status'})).connections.find(item=>item.id===a.id);
+ assert.equal(diagnostic.paused,true);assert.equal(diagnostic.connected,false);assert.match(diagnostic.error,/pair again/);
+ assert.equal(attempts.get('revoked-result'),1);assert(!pending.has(a.url));
+ deliver(b.url,command('beta-after-revocation',2));
+ await until(()=>reports.some(item=>item.payload.id==='beta-after-revocation'),'other broker survives revocation');
+ await update({connections:[{...a,enabled:false},b]});await update({connections:[a,b]});
+ await until(()=>pending.has(a.url)&&pending.has(b.url),'resume after explicit user toggle');
+
  offline.add(a.url);pending.get(a.url).reject(Error('Network unavailable'));pending.delete(a.url);
  deliver(b.url,command('offline-alpha-beta-continues',2));
  await until(()=>reports.some(item=>item.payload.id==='offline-alpha-beta-continues'),'healthy broker continues when other offline');
@@ -55,11 +90,18 @@ context.execute=async request=>{executed.push(request.id);if(request.args.block)
  await until(()=>(aborted.get(a.url)||0)>alphaAborts,'removed profile aborts its pending poll');
  assert.equal(aborted.get(b.url)||0,betaAborts,'removal must not abort the other broker');
  deliver(b.url,command('beta-after-alpha-removed',2));await until(()=>reports.some(item=>item.payload.id==='beta-after-alpha-removed'),'remaining broker works after removal');
+ await until(()=>pending.has(b.url),'beta poll before revocation');
+ const revokedPoll=pending.get(b.url);pending.delete(b.url);
+ revokedPoll.resolve({ok:false,status:401,json:async()=>({error:{code:'UNAUTHORIZED'}})});
+ await sleep(20);
+ diagnostic=(await statusHandler({type:'status'})).connections.find(item=>item.id===b.id);
+ assert.equal(diagnostic.paused,true);assert.equal(diagnostic.connected,false);assert.match(diagnostic.error,/UNAUTHORIZED/);
+ await update({connections:[{...b,enabled:false}]});await update({connections:[b]});
  await until(()=>pending.has(b.url),'beta poll before global pause');
  await update({enabled:false});await until(()=>!pending.has(b.url),'global pause aborts pending requests');
  deliver(b.url,command('paused-command',2));await sleep(20);assert(!executed.includes('paused-command'));
  const status=await statusHandler({type:'status'});assert.equal(status.enabled,false);
  assert(!JSON.stringify(status).includes(a.token));assert(!JSON.stringify(status).includes(b.token));
  await update({enabled:true});await until(()=>reports.some(item=>item.payload.id==='paused-command'),'global resume');
- console.log('PASS: independent simultaneous brokers, credential/result routing, offline isolation, per-profile cancellation/removal, legacy migration and global pause.');
+ console.log('PASS: independent simultaneous brokers, credential/result routing, offline isolation, per-profile cancellation/removal, legacy migration, terminal report release, conservative delivery retry, revocation pause and global pause.');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{await update({enabled:false});await sleep(20);});

@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Android Browser Bridge",
-  "version": "0.3.1",
+  "version": "1.0.0",
   "description": "Control your own browser from your Linux terminal, without ADB.",
   "permissions": [
     "storage",
@@ -16,6 +16,8 @@
         "https://*/*"
       ],
       "js": [
+        "webmcp_settings.js",
+        "webmcp_adapter.js",
         "page.js"
       ],
       "all_frames": true,
@@ -24,6 +26,7 @@
   ],
   "background": {
     "scripts": [
+      "operations.generated.js",
       "connection.js",
       "connections.js",
       "background.js"

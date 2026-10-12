@@ -12,6 +12,7 @@ const context = vm.createContext({URL, setTimeout, clearTimeout, AbortController
   webNavigation:{getAllFrames:async()=>[{frameId:0,parentFrameId:-1,url:tab.url}]}, browserAction:{onClicked:{addListener(){}}}}
 });
 vm.runInContext(fs.readFileSync("extension/connection.js","utf8"),context);
+vm.runInContext(fs.readFileSync("extension/operations.generated.js",'utf8'),context);
 vm.runInContext(fs.readFileSync("extension/background.js","utf8").replace(/loop\(\);\s*$/,""),context);
 (async()=>{
   assert.equal((await context.execute({op:"tabs"}))[0].id,7);
@@ -23,8 +24,7 @@ vm.runInContext(fs.readFileSync("extension/background.js","utf8").replace(/loop\
   assert.equal(lastMessage.args.value,args.value);assert.equal(lastOptions.frameId,9);
   receiverMissing=true;assert.equal((await context.execute({op:"read"})).title,"Page");
   assert.equal(injection.file,"page.js");
-  const batch=await context.execute({op:"batch",args:{steps:[{op:"read"},{op:"eval"},{op:"read"}]}});
-  assert.equal(batch.completed,1);assert.equal(batch.error.index,1);
+  await assert.rejects(context.execute({op:"batch",args:{steps:[{op:"read"},{op:"eval"},{op:"read"}]}}), /unsupported value/);
   assert.equal((await context.execute({op:"screenshot"})).mimeType,"image/jpeg");
   assert.equal((await context.execute({op:"frames"}))[0].frameId,0);
   assert.equal((await context.execute({op:"capabilities"})).trustedEvents,false);
@@ -54,6 +54,7 @@ const SCHEDULER=String.raw`
 const vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/strict');
 let storageChange;
 const ctx=vm.createContext({URL,AbortController,setTimeout,clearTimeout,performance,console,browser:{storage:{onChanged:{addListener(fn){storageChange=fn;}}},runtime:{onMessage:{addListener(){}},onInstalled:{addListener(){}}},browserAction:{onClicked:{addListener(){}}}}});
+vm.runInContext(fs.readFileSync('extension/operations.generated.js','utf8'),ctx);
 vm.runInContext(fs.readFileSync('extension/background.js','utf8').replace(/loop\(\);\s*$/,''),ctx);
 vm.runInContext('config={enabled:true}; generation=0;',ctx);
 let started=[],running=0,peak=0,resolvers=new Map();
@@ -84,6 +85,7 @@ const ctx=vm.createContext({URL,AbortController,setTimeout,clearTimeout,performa
  secondPollWaiting=true;return new Promise((r,reject)=>options.signal.addEventListener('abort',()=>reject(Error('aborted'))));
 },browser:{storage:{local:{get:async()=>({url:'http://127.0.0.1:8766',token:'test',device:'test',enabled:true})},onChanged:{addListener(f){change=f;}}},runtime:{getManifest:()=>({version:'0.2.0'}),onMessage:{addListener(){}},onInstalled:{addListener(){}}},browserAction:{onClicked:{addListener(){}}}}});
 vm.runInContext(fs.readFileSync('extension/connection.js','utf8'),ctx);
+vm.runInContext(fs.readFileSync('extension/operations.generated.js','utf8'),ctx);
 vm.runInContext(fs.readFileSync('extension/background.js','utf8').replace(/loop\(\);\s*$/,''),ctx);
 ctx.execute=async()=>({ok:true});ctx.loop();
 (async()=>{await Promise.race([reported,new Promise((_,reject)=>setTimeout(()=>reject(Error('report blocked by poll')),1000))]);change({enabled:{newValue:false}},'local');assert.equal(reports,1);console.log('PASS: result reported immediately while the next long poll is still waiting.');})().catch(e=>{console.error(e);process.exitCode=1;change({enabled:{newValue:false}},'local');});
@@ -112,7 +114,8 @@ const vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/st
 let focused,active;
 const tab={id:3,windowId:8,url:'https://example.org'};
 const browser={tabs:{get:async()=>tab,update:async(id,args)=>{active={id,args};return tab;},captureTab:async()=>{throw Error('Tab is not visible');}},windows:{update:async(id,args)=>{focused={id,args};return {focused:true};}},runtime:{getManifest:()=>({version:'0.2.0'}),onMessage:{addListener(){}},onInstalled:{addListener(){}}},storage:{onChanged:{addListener(){}}},browserAction:{onClicked:{addListener(){}}}};
-const ctx=vm.createContext({URL,AbortController,setTimeout,clearTimeout,performance,browser});vm.runInContext(fs.readFileSync('extension/background.js','utf8').replace(/loop\(\);\s*$/,''),ctx);
+const ctx=vm.createContext({URL,AbortController,setTimeout,clearTimeout,performance,browser});vm.runInContext(fs.readFileSync('extension/operations.generated.js','utf8'),ctx);
+vm.runInContext(fs.readFileSync('extension/background.js','utf8').replace(/loop\(\);\s*$/,''),ctx);
 (async()=>{let result=await ctx.execute({op:'foreground',args:{tabId:3}});assert.equal(active.id,3);assert.equal(focused.id,8);assert.equal(result.windowFocused,true);assert.equal(result.androidOSForegroundGuaranteed,false);delete browser.windows;result=await ctx.execute({op:'activate',args:{tabId:3}});assert.equal(result.windowFocusSupported,false);assert(result.nextStep.includes('open Firefox'));await assert.rejects(ctx.execute({op:'screenshot',args:{tabId:3}}),e=>e.code==='TAB_NOT_VISIBLE');console.log('PASS: foreground window focus, Android unsupported fallback, invisible screenshot remedy.');})().catch(e=>{console.error(e);process.exitCode=1;});
 `;
 
@@ -125,6 +128,7 @@ const ctx=vm.createContext({URL,AbortController,performance,
  setTimeout(fn,ms){const id=++nextTimer;timers.set(id,{fn,ms});return id;},clearTimeout(id){timers.delete(id);},
  browser:{tabs:{get:async id=>({...tab,id}),create:async()=>({...tab,id:4}),sendMessage:async id=>{sendCount++;if(id===1)return await new Promise((resolve,reject)=>{resolveMessage=resolve;rejectMessage=reject;});return {result:{ok:true}};},executeScript:async()=>{injectCount++;}},storage:{onChanged:{addListener(){}}},runtime:{getManifest:()=>({version:'0.2.1'}),onMessage:{addListener(){}},onInstalled:{addListener(){}}},browserAction:{onClicked:{addListener(){}}}}
 });
+vm.runInContext(fs.readFileSync('extension/operations.generated.js','utf8'),ctx);
 vm.runInContext(fs.readFileSync('extension/background.js','utf8').replace(/loop\(\);\s*$/,''),ctx);
 vm.runInContext('config={enabled:true};generation=0;',ctx);
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));

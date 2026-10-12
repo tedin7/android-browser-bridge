@@ -43,7 +43,7 @@ class BridgeTests(unittest.TestCase):
 
     def test_stale_command_expires(self):
         self.broker.handle("/api/poll", {"device": "tablet"})
-        identifier = self.broker.handle("/api/command", {"device": "tablet", "op": "click"})["id"]
+        identifier = self.broker.handle("/api/command", {"device": "tablet", "op": "click", "args":{"selector":"#fixture"}})["id"]
         self.broker.commands[identifier]["created"] -= 31
         self.assertIsNone(self.broker.handle("/api/poll", {"device": "tablet"})["command"])
         self.assertEqual(self.broker.handle("/api/status", {"id": identifier})["state"], "expired")
@@ -51,7 +51,7 @@ class BridgeTests(unittest.TestCase):
     def test_mcp_discovery(self):
         initialized = handle({"method": "initialize", "params": {"protocolVersion": "2025-03-26"}})
         self.assertEqual(initialized["protocolVersion"], "2025-03-26")
-        self.assertEqual(len(handle({"method": "tools/list"})["tools"]), 6)
+        self.assertEqual(len(handle({"method": "tools/list"})["tools"]), 10)
 
     def test_pair_once_and_revoke(self):
         code = self.broker.handle("/api/enroll", {"device": "tablet"})["code"]
@@ -92,7 +92,10 @@ class BridgeTests(unittest.TestCase):
             broker = Broker(path)
             code = broker.handle("/api/enroll", {"device": "tablet"})["code"]
             paired = broker.pair(code)
-            self.assertTrue(Broker(path).authorized_device("tablet", paired["token"]))
+            broker.action_store.close()
+            restarted=Broker(path)
+            self.assertTrue(restarted.authorized_device("tablet", paired["token"]))
+            restarted.action_store.close()
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
 
     def test_connection_policy(self):
@@ -167,7 +170,7 @@ class GuidanceTests(unittest.TestCase):
 
     def test_status_tool_reads_known_command_without_dispatching_actions(self):
         broker=Broker();broker.handle('/api/poll',{'device':'tablet'})
-        identifier=broker.handle('/api/command',{'device':'tablet','op':'click'})['id']
+        identifier=broker.handle('/api/command',{'device':'tablet','op':'click','args':{'selector':'#fixture'}})['id']
         broker.handle('/api/poll',{'device':'tablet'})
         def request(url,token,path,arguments):return broker.handle(path,arguments)
         message={'method':'tools/call','params':{'name':'browser_status','arguments':{'id':identifier}}}

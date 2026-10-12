@@ -30,7 +30,7 @@ function environment(initial){
   return {ok:true,status:200,json:async()=>{if(environment.bodyTimeout)return await new Promise((resolve,reject)=>options.signal.addEventListener('abort',()=>reject(Error('aborted fixture response body')),{once:true}));return {token:'fixture-private-token-'+new URL(url).port,device:'fixture-device'};}};
  }});
  context.window=context;
- for(const file of ['connection.js','connections.js','options.js'])vm.runInContext(fs.readFileSync('extension/'+file,'utf8'),context);
+ for(const file of ['connection.js','connections.js','options.js','webmcp_settings.js','webmcp_options.js'])vm.runInContext(fs.readFileSync('extension/'+file,'utf8'),context);
  return {context,elements,fetches,get store(){return store;},async add(origin,name='New owned server',consent=true){elements.get('code').value=pairing(origin);elements.get('name').value=name;elements.get('consent').checked=consent;await context.addPairing();},async settle(){await new Promise(resolve=>setTimeout(resolve,10));}};
 }
 (async()=>{
@@ -68,5 +68,15 @@ function environment(initial){
  assert.equal(ui.store.connections[0].enabled,false);assert.equal(JSON.stringify(ui.store.connections[1]),otherBefore);
  await ui.elements.get('global-toggle').fire('click');await ui.settle();assert.equal(ui.store.enabled,true);assert.equal(ui.store.connections[0].enabled,false,'global resume must preserve per-server pause');
  const retained=structuredClone(ui.store.connections[1]);await ui.context.removeConnection(ui.store.connections[0].id);await ui.settle();assert.equal(ui.store.connections.length,1);assert.deepEqual(ui.store.connections[0],retained);
+ const connectionsBeforeWebMCP=JSON.stringify(ui.store.connections);
+ ui.elements.get('webmcp-enabled').checked=true;
+ ui.elements.get('webmcp-origins').value='https://fixture.invalid';
+ ui.elements.get('webmcp-names').value='search';
+ await ui.elements.get('webmcp-config').fire('submit');
+ assert.equal(ui.store.webmcp.enabled,true);assert.deepEqual(ui.store.webmcp.allowedToolNames,['search']);
+ assert.equal(JSON.stringify(ui.store.connections),connectionsBeforeWebMCP);
+ ui.elements.get('webmcp-origins').value='https://fixture.invalid/unsafe-path';
+ await ui.elements.get('webmcp-config').fire('submit');
+ assert.deepEqual(ui.store.webmcp.allowedOrigins,['https://fixture.invalid']);
  console.log('PASS: options pairing preserves existing servers, consent and validation prevent writes, legacy credentials are removed, duplicate repair is bounded, controls preserve other servers and secrets stay hidden.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

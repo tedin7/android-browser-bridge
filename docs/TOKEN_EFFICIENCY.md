@@ -60,3 +60,13 @@ fixture locali in un Firefox isolato. Riporta byte UTF-8 e caratteri, non token.
 Le immagini non si misurano come token contando i byte del file. I contatori
 cumulativi Codex includono contesto ripetuto e input cached; non rappresentano
 il numero di caratteri unici caricati né una percentuale del piano.
+
+
+The 1.0 tools list projects browser command arguments to common targets and
+values by default. Less common arguments remain supported and validated by the
+shared registry; `browser_contract(operation)` discovers the exact contract.
+Set `BROWSER_BRIDGE_FULL_TOOL_SCHEMAS=1` on the MCP process to advertise the full
+legacy argument inventory. This reduces discovery bytes; it is not a measured
+claim about a client's full input-token count or subscription quota. Cached
+system context, host tools and client instructions also contribute to reported
+input. `browser_step` can combine actions and explicit checks in one tool call.

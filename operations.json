@@ -1,0 +1,4233 @@
+{
+  "registryVersion": 1,
+  "productVersion": "1.0.0",
+  "operations": {
+    "activate": {
+      "engine": "background",
+      "effect": "browser",
+      "ordering": "global",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false
+      },
+      "verification": "effects require explicit follow-up verification",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "tabId": {
+            "type": "integer"
+          },
+          "tabActivated": {
+            "type": "boolean"
+          },
+          "windowFocusSupported": {
+            "type": "boolean"
+          },
+          "windowFocusRequested": {
+            "type": "boolean"
+          },
+          "windowFocused": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "androidOSForegroundGuaranteed": {
+            "type": "boolean"
+          },
+          "windowFocusError": {
+            "type": "string"
+          },
+          "nextStep": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "tabId",
+          "tabActivated",
+          "windowFocusSupported",
+          "windowFocusRequested",
+          "windowFocused",
+          "androidOSForegroundGuaranteed"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "back": {
+      "engine": "background",
+      "effect": "navigation",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "waitUntil": {
+            "type": "string",
+            "enum": [
+              "none",
+              "complete"
+            ]
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15000
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false
+      },
+      "verification": "effects require explicit follow-up verification",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "batch": {
+      "engine": "background",
+      "effect": "compound",
+      "ordering": "global",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "steps": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 25,
+            "items": {
+              "type": "object",
+              "required": [
+                "op"
+              ],
+              "properties": {
+                "op": {
+                  "type": "string",
+                  "enum": [
+                    "acquire_lease",
+                    "activate",
+                    "back",
+                    "capabilities",
+                    "check",
+                    "clear",
+                    "click",
+                    "click_point",
+                    "close",
+                    "double_click",
+                    "drag",
+                    "fill",
+                    "focus",
+                    "foreground",
+                    "forward",
+                    "frames",
+                    "hover",
+                    "inspect",
+                    "locate",
+                    "navigate",
+                    "open",
+                    "press",
+                    "read",
+                    "release_lease",
+                    "reload",
+                    "screenshot",
+                    "scroll",
+                    "select",
+                    "tabs",
+                    "type",
+                    "viewport",
+                    "wait",
+                    "webmcp_discover",
+                    "webmcp_invoke"
+                  ]
+                },
+                "args": {
+                  "type": "object"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "steps"
+        ]
+      },
+      "verification": "effects require explicit follow-up verification",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "type": "string",
+                  "enum": [
+                    "acquire_lease",
+                    "activate",
+                    "back",
+                    "capabilities",
+                    "check",
+                    "clear",
+                    "click",
+                    "click_point",
+                    "close",
+                    "double_click",
+                    "drag",
+                    "fill",
+                    "focus",
+                    "foreground",
+                    "forward",
+                    "frames",
+                    "hover",
+                    "inspect",
+                    "locate",
+                    "navigate",
+                    "open",
+                    "press",
+                    "read",
+                    "release_lease",
+                    "reload",
+                    "screenshot",
+                    "scroll",
+                    "select",
+                    "tabs",
+                    "type",
+                    "viewport",
+                    "wait",
+                    "webmcp_discover",
+                    "webmcp_invoke"
+                  ]
+                },
+                "result": {
+                  "type": [
+                    "object",
+                    "array"
+                  ]
+                }
+              },
+              "required": [
+                "op",
+                "result"
+              ]
+            }
+          },
+          "completed": {
+            "type": "integer"
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "index": {
+                "type": "integer"
+              },
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "index",
+              "code",
+              "message"
+            ]
+          }
+        },
+        "required": [
+          "results",
+          "completed"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "capabilities": {
+      "engine": "background",
+      "effect": "observe",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "verification": "observation",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "operations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "transport": {
+            "type": "string"
+          },
+          "trustedEvents": {
+            "type": "boolean"
+          },
+          "frames": {
+            "type": "boolean"
+          },
+          "screenshot": {
+            "type": "boolean"
+          },
+          "openShadowRoots": {
+            "type": "boolean"
+          },
+          "closedShadowRoots": {
+            "type": "boolean"
+          },
+          "nativeAndroidUI": {
+            "type": "boolean"
+          },
+          "foregroundAPI": {
+            "type": "object",
+            "properties": {
+              "tabActivation": {
+                "type": "boolean"
+              },
+              "windowFocus": {
+                "type": "boolean"
+              },
+              "androidOSForegroundGuaranteed": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "tabActivation",
+              "windowFocus",
+              "androidOSForegroundGuaranteed"
+            ]
+          },
+          "workflowLeases": {
+            "type": "object",
+            "properties": {
+              "maxTtlMs": {
+                "type": "integer"
+              },
+              "crossBroker": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "maxTtlMs",
+              "crossBroker"
+            ]
+          },
+          "parallelTabs": {
+            "type": "boolean"
+          },
+          "maxParallelCommands": {
+            "type": "integer"
+          },
+          "desktopViewport": {
+            "type": "object",
+            "properties": {
+              "requiresDesktop": {
+                "type": "boolean"
+              },
+              "requiresWindowAPIs": {
+                "type": "boolean"
+              },
+              "calibrationAttempts": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "requiresDesktop",
+              "requiresWindowAPIs",
+              "calibrationAttempts"
+            ]
+          },
+          "webMCP": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "version",
+          "operations",
+          "transport",
+          "trustedEvents",
+          "frames",
+          "screenshot",
+          "openShadowRoots",
+          "closedShadowRoots",
+          "nativeAndroidUI",
+          "foregroundAPI",
+          "workflowLeases",
+          "parallelTabs",
+          "maxParallelCommands",
+          "desktopViewport",
+          "webMCP"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "check": {
+      "engine": "page",
+      "effect": "page",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "frameId": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "selector": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "testId": {
+            "type": "string"
+          },
+          "textQuery": {
+            "type": "string"
+          },
+          "text": {
+            "type": [
+              "boolean",
+              "string"
+            ]
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "includeHidden": {
+            "type": "boolean"
+          },
+          "checked": {
+            "type": "boolean"
+          },
+          "force": {
+            "type": "boolean"
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15000
+          },
+          "expectedDocumentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "selector"
+            ]
+          },
+          {
+            "required": [
+              "ref"
+            ]
+          },
+          {
+            "required": [
+              "role"
+            ]
+          },
+          {
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "required": [
+              "label"
+            ]
+          },
+          {
+            "required": [
+              "testId"
+            ]
+          },
+          {
+            "required": [
+              "textQuery"
+            ]
+          },
+          {
+            "required": [
+              "text"
+            ]
+          }
+        ]
+      },
+      "verification": "effects require explicit follow-up verification",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "checked": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "checked"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "clear": {
+      "engine": "page",
+      "effect": "page",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "frameId": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "selector": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "testId": {
+            "type": "string"
+          },
+          "textQuery": {
+            "type": "string"
+          },
+          "text": {
+            "type": [
+              "boolean",
+              "string"
+            ]
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "includeHidden": {
+            "type": "boolean"
+          },
+          "force": {
+            "type": "boolean"
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15000
+          },
+          "expectedDocumentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "selector"
+            ]
+          },
+          {
+            "required": [
+              "ref"
+            ]
+          },
+          {
+            "required": [
+              "role"
+            ]
+          },
+          {
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "required": [
+              "label"
+            ]
+          },
+          {
+            "required": [
+              "testId"
+            ]
+          },
+          {
+            "required": [
+              "textQuery"
+            ]
+          },
+          {
+            "required": [
+              "text"
+            ]
+          }
+        ]
+      },
+      "verification": "effects require explicit follow-up verification",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "length": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ok",
+          "length"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "click": {
+      "engine": "page",
+      "effect": "page",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "frameId": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "selector": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "testId": {
+            "type": "string"
+          },
+          "textQuery": {
+            "type": "string"
+          },
+          "text": {
+            "type": [
+              "boolean",
+              "string"
+            ]
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "includeHidden": {
+            "type": "boolean"
+          },
+          "force": {
+            "type": "boolean"
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15000
+          },
+          "expectedDocumentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "selector"
+            ]
+          },
+          {
+            "required": [
+              "ref"
+            ]
+          },
+          {
+            "required": [
+              "role"
+            ]
+          },
+          {
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "required": [
+              "label"
+            ]
+          },
+          {
+            "required": [
+              "testId"
+            ]
+          },
+          {
+            "required": [
+              "textQuery"
+            ]
+          },
+          {
+            "required": [
+              "text"
+            ]
+          }
+        ]
+      },
+      "verification": "effects require explicit follow-up verification",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "ref": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "ref"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "click_point": {
+      "engine": "page",
+      "effect": "page",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "frameId": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "selector": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "testId": {
+            "type": "string"
+          },
+          "textQuery": {
+            "type": "string"
+          },
+          "text": {
+            "type": [
+              "boolean",
+              "string"
+            ]
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "includeHidden": {
+            "type": "boolean"
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "force": {
+            "type": "boolean"
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15000
+          },
+          "expectedDocumentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "x",
+          "y"
+        ]
+      },
+      "verification": "effects require explicit follow-up verification",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "trustedEvents": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "ref",
+          "x",
+          "y",
+          "trustedEvents"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "close": {
+      "engine": "background",
+      "effect": "browser",
+      "ordering": "global",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false
+      },
+      "verification": "effects require explicit follow-up verification",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "double_click": {
+      "engine": "page",
+      "effect": "page",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "frameId": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "selector": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "testId": {
+            "type": "string"
+          },
+          "textQuery": {
+            "type": "string"
+          },
+          "text": {
+            "type": [
+              "boolean",
+              "string"
+            ]
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "includeHidden": {
+            "type": "boolean"
+          },
+          "force": {
+            "type": "boolean"
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15000
+          },
+          "expectedDocumentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "selector"
+            ]
+          },
+          {
+            "required": [
+              "ref"
+            ]
+          },
+          {
+            "required": [
+              "role"
+            ]
+          },
+          {
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "required": [
+              "label"
+            ]
+          },
+          {
+            "required": [
+              "testId"
+            ]
+          },
+          {
+            "required": [
+              "textQuery"
+            ]
+          },
+          {
+            "required": [
+              "text"
+            ]
+          }
+        ]
+      },
+      "verification": "effects require explicit follow-up verification",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "ref": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "ref"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "drag": {
+      "engine": "page",
+      "effect": "page",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "frameId": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "selector": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "testId": {
+            "type": "string"
+          },
+          "textQuery": {
+            "type": "string"
+          },
+          "text": {
+            "type": [
+              "boolean",
+              "string"
+            ]
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "includeHidden": {
+            "type": "boolean"
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "toX": {
+            "type": "number"
+          },
+          "toY": {
+            "type": "number"
+          },
+          "dragSteps": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60
+          },
+          "steps": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60
+          },
+          "force": {
+            "type": "boolean"
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15000
+          },
+          "expectedDocumentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "x",
+          "y",
+          "toX",
+          "toY"
+        ]
+      },
+      "verification": "effects require explicit follow-up verification",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "from": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ]
+          },
+          "to": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ]
+          },
+          "steps": {
+            "type": "integer"
+          },
+          "trustedEvents": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "ref",
+          "from",
+          "to",
+          "steps",
+          "trustedEvents"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "fill": {
+      "engine": "page",
+      "effect": "page",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "frameId": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "selector": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "testId": {
+            "type": "string"
+          },
+          "textQuery": {
+            "type": "string"
+          },
+          "text": {
+            "type": [
+              "boolean",
+              "string"
+            ]
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "includeHidden": {
+            "type": "boolean"
+          },
+          "value": {
+            "type": "string"
+          },
+          "force": {
+            "type": "boolean"
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15000
+          },
+          "expectedDocumentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "selector"
+            ]
+          },
+          {
+            "required": [
+              "ref"
+            ]
+          },
+          {
+            "required": [
+              "role"
+            ]
+          },
+          {
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "required": [
+              "label"
+            ]
+          },
+          {
+            "required": [
+              "testId"
+            ]
+          },
+          {
+            "required": [
+              "textQuery"
+            ]
+          },
+          {
+            "required": [
+              "text"
+            ]
+          }
+        ]
+      },
+      "verification": "effects require explicit follow-up verification",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "length": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ok",
+          "length"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "focus": {
+      "engine": "page",
+      "effect": "page",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "frameId": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "selector": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "testId": {
+            "type": "string"
+          },
+          "textQuery": {
+            "type": "string"
+          },
+          "text": {
+            "type": [
+              "boolean",
+              "string"
+            ]
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "includeHidden": {
+            "type": "boolean"
+          },
+          "force": {
+            "type": "boolean"
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15000
+          },
+          "expectedDocumentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "selector"
+            ]
+          },
+          {
+            "required": [
+              "ref"
+            ]
+          },
+          {
+            "required": [
+              "role"
+            ]
+          },
+          {
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "required": [
+              "label"
+            ]
+          },
+          {
+            "required": [
+              "testId"
+            ]
+          },
+          {
+            "required": [
+              "textQuery"
+            ]
+          },
+          {
+            "required": [
+              "text"
+            ]
+          }
+        ]
+      },
+      "verification": "effects require explicit follow-up verification",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "focused": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "focused"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "foreground": {
+      "engine": "background",
+      "effect": "browser",
+      "ordering": "global",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false
+      },
+      "verification": "effects require explicit follow-up verification",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "tabId": {
+            "type": "integer"
+          },
+          "tabActivated": {
+            "type": "boolean"
+          },
+          "windowFocusSupported": {
+            "type": "boolean"
+          },
+          "windowFocusRequested": {
+            "type": "boolean"
+          },
+          "windowFocused": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "androidOSForegroundGuaranteed": {
+            "type": "boolean"
+          },
+          "windowFocusError": {
+            "type": "string"
+          },
+          "nextStep": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "tabId",
+          "tabActivated",
+          "windowFocusSupported",
+          "windowFocusRequested",
+          "windowFocused",
+          "androidOSForegroundGuaranteed"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "forward": {
+      "engine": "background",
+      "effect": "navigation",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "waitUntil": {
+            "type": "string",
+            "enum": [
+              "none",
+              "complete"
+            ]
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15000
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false
+      },
+      "verification": "effects require explicit follow-up verification",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "frames": {
+      "engine": "background",
+      "effect": "observe",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false
+      },
+      "verification": "observation",
+      "outputSchema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "frameId": {
+              "type": "integer"
+            },
+            "parentFrameId": {
+              "type": "integer"
+            },
+            "url": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "frameId",
+            "parentFrameId",
+            "url"
+          ]
+        }
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "hover": {
+      "engine": "page",
+      "effect": "page",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "frameId": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "selector": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "testId": {
+            "type": "string"
+          },
+          "textQuery": {
+            "type": "string"
+          },
+          "text": {
+            "type": [
+              "boolean",
+              "string"
+            ]
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "includeHidden": {
+            "type": "boolean"
+          },
+          "force": {
+            "type": "boolean"
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15000
+          },
+          "expectedDocumentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "selector"
+            ]
+          },
+          {
+            "required": [
+              "ref"
+            ]
+          },
+          {
+            "required": [
+              "role"
+            ]
+          },
+          {
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "required": [
+              "label"
+            ]
+          },
+          {
+            "required": [
+              "testId"
+            ]
+          },
+          {
+            "required": [
+              "textQuery"
+            ]
+          },
+          {
+            "required": [
+              "text"
+            ]
+          }
+        ]
+      },
+      "verification": "effects require explicit follow-up verification",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "inspect": {
+      "engine": "page",
+      "effect": "observe",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "frameId": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "selector": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "testId": {
+            "type": "string"
+          },
+          "textQuery": {
+            "type": "string"
+          },
+          "text": {
+            "type": [
+              "boolean",
+              "string"
+            ]
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "includeHidden": {
+            "type": "boolean"
+          },
+          "layout": {
+            "type": "boolean",
+            "description": "Include computed styles and geometry with inspect; requires extension 0.3.1."
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15000
+          },
+          "expectedDocumentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "selector"
+            ]
+          },
+          {
+            "required": [
+              "ref"
+            ]
+          },
+          {
+            "required": [
+              "role"
+            ]
+          },
+          {
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "required": [
+              "label"
+            ]
+          },
+          {
+            "required": [
+              "testId"
+            ]
+          },
+          {
+            "required": [
+              "textQuery"
+            ]
+          },
+          {
+            "required": [
+              "text"
+            ]
+          }
+        ]
+      },
+      "verification": "observation",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "type": "string"
+          },
+          "tag": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "visible": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "accessibleName": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "rect": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "width": {
+                "type": "number"
+              },
+              "height": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "width",
+              "height"
+            ]
+          },
+          "selector": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "href": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "checked": {
+            "type": "boolean"
+          },
+          "focused": {
+            "type": "boolean"
+          },
+          "readOnly": {
+            "type": "boolean"
+          },
+          "value": {
+            "type": "string"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "selected": {
+                  "type": "boolean"
+                },
+                "disabled": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "value",
+                "text",
+                "selected",
+                "disabled"
+              ]
+            }
+          },
+          "layout": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "ref",
+          "tag",
+          "role",
+          "visible",
+          "enabled",
+          "focused",
+          "readOnly"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "locate": {
+      "engine": "page",
+      "effect": "observe",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "frameId": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "selector": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "testId": {
+            "type": "string"
+          },
+          "textQuery": {
+            "type": "string"
+          },
+          "text": {
+            "type": [
+              "boolean",
+              "string"
+            ]
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "includeHidden": {
+            "type": "boolean"
+          },
+          "maxElements": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 500
+          },
+          "selectors": {
+            "type": "boolean"
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "responseFields": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "ref",
+                "tag",
+                "role",
+                "accessibleName",
+                "text",
+                "visible",
+                "enabled",
+                "rect",
+                "selector",
+                "type",
+                "name",
+                "href",
+                "checked"
+              ]
+            }
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15000
+          },
+          "expectedDocumentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "selector"
+            ]
+          },
+          {
+            "required": [
+              "ref"
+            ]
+          },
+          {
+            "required": [
+              "role"
+            ]
+          },
+          {
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "required": [
+              "label"
+            ]
+          },
+          {
+            "required": [
+              "testId"
+            ]
+          },
+          {
+            "required": [
+              "textQuery"
+            ]
+          },
+          {
+            "required": [
+              "text"
+            ]
+          }
+        ]
+      },
+      "verification": "observation",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer"
+          },
+          "elements": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "ref": {
+                  "type": "string"
+                },
+                "tag": {
+                  "type": "string"
+                },
+                "role": {
+                  "type": "string"
+                },
+                "visible": {
+                  "type": "boolean"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "accessibleName": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "rect": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "number"
+                    },
+                    "y": {
+                      "type": "number"
+                    },
+                    "width": {
+                      "type": "number"
+                    },
+                    "height": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y",
+                    "width",
+                    "height"
+                  ]
+                },
+                "selector": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "href": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "checked": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "ref",
+                "tag",
+                "role",
+                "visible",
+                "enabled"
+              ]
+            }
+          }
+        },
+        "required": [
+          "count",
+          "elements"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "navigate": {
+      "engine": "background",
+      "effect": "navigation",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "url": {
+            "type": "string"
+          },
+          "waitUntil": {
+            "type": "string",
+            "enum": [
+              "none",
+              "complete"
+            ]
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15000
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "url"
+        ]
+      },
+      "verification": "effects require explicit follow-up verification",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "open": {
+      "engine": "background",
+      "effect": "navigation",
+      "ordering": "global",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "waitUntil": {
+            "type": "string",
+            "enum": [
+              "none",
+              "complete"
+            ]
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15000
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "url"
+        ]
+      },
+      "verification": "effects require explicit follow-up verification",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "press": {
+      "engine": "page",
+      "effect": "page",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "frameId": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "selector": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "testId": {
+            "type": "string"
+          },
+          "textQuery": {
+            "type": "string"
+          },
+          "text": {
+            "type": [
+              "boolean",
+              "string"
+            ]
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "includeHidden": {
+            "type": "boolean"
+          },
+          "key": {
+            "type": "string",
+            "description": "Examples: Enter, Tab, Control+A, Backspace"
+          },
+          "force": {
+            "type": "boolean"
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15000
+          },
+          "expectedDocumentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "key"
+        ],
+        "anyOf": [
+          {
+            "required": [
+              "selector"
+            ]
+          },
+          {
+            "required": [
+              "ref"
+            ]
+          },
+          {
+            "required": [
+              "role"
+            ]
+          },
+          {
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "required": [
+              "label"
+            ]
+          },
+          {
+            "required": [
+              "testId"
+            ]
+          },
+          {
+            "required": [
+              "textQuery"
+            ]
+          },
+          {
+            "required": [
+              "text"
+            ]
+          }
+        ]
+      },
+      "verification": "effects require explicit follow-up verification",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "defaultPrevented": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "defaultPrevented"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "read": {
+      "engine": "page",
+      "effect": "observe",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "frameId": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "selector": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "testId": {
+            "type": "string"
+          },
+          "textQuery": {
+            "type": "string"
+          },
+          "text": {
+            "type": [
+              "boolean",
+              "string"
+            ]
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "includeHidden": {
+            "type": "boolean"
+          },
+          "textLimit": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "textOffset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "maxElements": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 500
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "selectors": {
+            "type": "boolean"
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "responseFields": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "ref",
+                "tag",
+                "role",
+                "accessibleName",
+                "text",
+                "visible",
+                "enabled",
+                "rect",
+                "selector",
+                "type",
+                "name",
+                "href",
+                "checked"
+              ]
+            }
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15000
+          },
+          "expectedDocumentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false
+      },
+      "verification": "observation",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "readyState": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "textLength": {
+            "type": "integer"
+          },
+          "textTruncated": {
+            "type": "boolean"
+          },
+          "elements": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "ref": {
+                  "type": "string"
+                },
+                "tag": {
+                  "type": "string"
+                },
+                "role": {
+                  "type": "string"
+                },
+                "visible": {
+                  "type": "boolean"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "accessibleName": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "rect": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "number"
+                    },
+                    "y": {
+                      "type": "number"
+                    },
+                    "width": {
+                      "type": "number"
+                    },
+                    "height": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y",
+                    "width",
+                    "height"
+                  ]
+                },
+                "selector": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "href": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "checked": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "ref",
+                "tag",
+                "role",
+                "visible",
+                "enabled"
+              ]
+            }
+          },
+          "elementCount": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "elementsComplete": {
+            "type": "boolean"
+          },
+          "nextOffset": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "scroll": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "maxX": {
+                "type": "number"
+              },
+              "maxY": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "maxX",
+              "maxY"
+            ]
+          },
+          "viewport": {
+            "type": "object",
+            "properties": {
+              "width": {
+                "type": "number"
+              },
+              "height": {
+                "type": "number"
+              },
+              "documentWidth": {
+                "type": "number"
+              },
+              "visibility": {
+                "type": "string"
+              },
+              "visual": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ]
+          },
+          "documentId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "title",
+          "readyState",
+          "text",
+          "elements",
+          "scroll",
+          "viewport"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "reload": {
+      "engine": "background",
+      "effect": "navigation",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "waitUntil": {
+            "type": "string",
+            "enum": [
+              "none",
+              "complete"
+            ]
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15000
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false
+      },
+      "verification": "effects require explicit follow-up verification",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "screenshot": {
+      "engine": "background",
+      "effect": "observe",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "jpeg",
+              "png"
+            ]
+          },
+          "quality": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false
+      },
+      "verification": "observation",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "mimeType": {
+            "type": "string",
+            "enum": [
+              "image/jpeg",
+              "image/png"
+            ]
+          },
+          "data": {
+            "type": "string"
+          },
+          "tabId": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mimeType",
+          "data",
+          "tabId"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "scroll": {
+      "engine": "page",
+      "effect": "page",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "frameId": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "selector": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "testId": {
+            "type": "string"
+          },
+          "textQuery": {
+            "type": "string"
+          },
+          "text": {
+            "type": [
+              "boolean",
+              "string"
+            ]
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "includeHidden": {
+            "type": "boolean"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "relative",
+              "absolute",
+              "intoView"
+            ]
+          },
+          "behavior": {
+            "type": "string",
+            "enum": [
+              "instant",
+              "smooth",
+              "auto"
+            ]
+          },
+          "block": {
+            "type": "string",
+            "enum": [
+              "start",
+              "center",
+              "end",
+              "nearest"
+            ]
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15000
+          },
+          "expectedDocumentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false
+      },
+      "verification": "effects require explicit follow-up verification",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "before": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "maxX": {
+                "type": "number"
+              },
+              "maxY": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "maxX",
+              "maxY"
+            ]
+          },
+          "after": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "maxX": {
+                "type": "number"
+              },
+              "maxY": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "maxX",
+              "maxY"
+            ]
+          },
+          "window": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "maxX": {
+                "type": "number"
+              },
+              "maxY": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "maxX",
+              "maxY"
+            ]
+          }
+        },
+        "required": [
+          "before",
+          "after",
+          "window"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "select": {
+      "engine": "page",
+      "effect": "page",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "frameId": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "selector": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "testId": {
+            "type": "string"
+          },
+          "textQuery": {
+            "type": "string"
+          },
+          "text": {
+            "type": [
+              "boolean",
+              "string"
+            ]
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "includeHidden": {
+            "type": "boolean"
+          },
+          "value": {
+            "type": "string"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "force": {
+            "type": "boolean"
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15000
+          },
+          "expectedDocumentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "selector"
+            ]
+          },
+          {
+            "required": [
+              "ref"
+            ]
+          },
+          {
+            "required": [
+              "role"
+            ]
+          },
+          {
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "required": [
+              "label"
+            ]
+          },
+          {
+            "required": [
+              "testId"
+            ]
+          },
+          {
+            "required": [
+              "textQuery"
+            ]
+          },
+          {
+            "required": [
+              "text"
+            ]
+          }
+        ]
+      },
+      "verification": "effects require explicit follow-up verification",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "values"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "tabs": {
+      "engine": "background",
+      "effect": "observe",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "verification": "observation",
+      "outputSchema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer"
+            },
+            "title": {
+              "type": "string"
+            },
+            "url": {
+              "type": "string"
+            },
+            "active": {
+              "type": "boolean"
+            },
+            "status": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "active"
+          ]
+        }
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "type": {
+      "engine": "page",
+      "effect": "page",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "frameId": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "selector": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "testId": {
+            "type": "string"
+          },
+          "textQuery": {
+            "type": "string"
+          },
+          "text": {
+            "type": [
+              "boolean",
+              "string"
+            ]
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "includeHidden": {
+            "type": "boolean"
+          },
+          "value": {
+            "type": "string"
+          },
+          "force": {
+            "type": "boolean"
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15000
+          },
+          "expectedDocumentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "selector"
+            ]
+          },
+          {
+            "required": [
+              "ref"
+            ]
+          },
+          {
+            "required": [
+              "role"
+            ]
+          },
+          {
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "required": [
+              "label"
+            ]
+          },
+          {
+            "required": [
+              "testId"
+            ]
+          },
+          {
+            "required": [
+              "textQuery"
+            ]
+          },
+          {
+            "required": [
+              "text"
+            ]
+          }
+        ]
+      },
+      "verification": "effects require explicit follow-up verification",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "length": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ok",
+          "length"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "viewport": {
+      "engine": "background",
+      "effect": "browser",
+      "ordering": "global",
+      "platforms": [
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 320,
+            "maximum": 3840
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 320,
+            "maximum": 2160
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "width",
+          "height"
+        ]
+      },
+      "verification": "effects require explicit follow-up verification",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "windowId": {
+            "type": "integer"
+          },
+          "requested": {
+            "type": "object",
+            "properties": {
+              "width": {
+                "type": "number"
+              },
+              "height": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ]
+          },
+          "actual": {
+            "type": "object",
+            "properties": {
+              "width": {
+                "type": "number"
+              },
+              "height": {
+                "type": "number"
+              },
+              "documentWidth": {
+                "type": "number"
+              },
+              "visibility": {
+                "type": "string"
+              },
+              "visual": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ]
+          },
+          "matched": {
+            "type": "boolean"
+          },
+          "verified": {
+            "type": "boolean"
+          },
+          "attempts": {
+            "type": "integer"
+          },
+          "desktopOnly": {
+            "type": "boolean"
+          },
+          "affectsWindowTabs": {
+            "type": "boolean"
+          },
+          "nextStep": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tabId",
+          "windowId",
+          "requested",
+          "actual",
+          "matched",
+          "verified",
+          "attempts",
+          "desktopOnly",
+          "affectsWindowTabs"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "wait": {
+      "engine": "page",
+      "effect": "observe",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "0.3.1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "frameId": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "selector": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "testId": {
+            "type": "string"
+          },
+          "textQuery": {
+            "type": "string"
+          },
+          "text": {
+            "type": [
+              "boolean",
+              "string"
+            ]
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "includeHidden": {
+            "type": "boolean"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "visible",
+              "hidden",
+              "attached",
+              "detached"
+            ]
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15000
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "expectedDocumentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "selector"
+            ]
+          },
+          {
+            "required": [
+              "ref"
+            ]
+          },
+          {
+            "required": [
+              "role"
+            ]
+          },
+          {
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "required": [
+              "label"
+            ]
+          },
+          {
+            "required": [
+              "testId"
+            ]
+          },
+          {
+            "required": [
+              "textQuery"
+            ]
+          },
+          {
+            "required": [
+              "text"
+            ]
+          }
+        ]
+      },
+      "verification": "observation",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "attached",
+              "detached",
+              "visible",
+              "hidden"
+            ]
+          },
+          "count": {
+            "type": "integer"
+          },
+          "element": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "ref": {
+                    "type": "string"
+                  },
+                  "tag": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string"
+                  },
+                  "visible": {
+                    "type": "boolean"
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "accessibleName": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "rect": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number"
+                      },
+                      "y": {
+                        "type": "number"
+                      },
+                      "width": {
+                        "type": "number"
+                      },
+                      "height": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y",
+                      "width",
+                      "height"
+                    ]
+                  },
+                  "selector": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "href": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "checked": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "ref",
+                  "tag",
+                  "role",
+                  "visible",
+                  "enabled"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "state",
+          "count",
+          "element"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "acquire_lease": {
+      "engine": "background",
+      "effect": "control",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "1.0.0",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "ttlMs": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60000
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "tabId",
+          "workflowId"
+        ]
+      },
+      "verification": "lease grant is not evidence of page effects",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer"
+          },
+          "workflowId": {
+            "type": "string"
+          },
+          "leaseGeneration": {
+            "type": "string"
+          },
+          "expiresInMs": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "tabId",
+          "workflowId",
+          "leaseGeneration",
+          "expiresInMs"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "release_lease": {
+      "engine": "background",
+      "effect": "control",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "1.0.0",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "tabId",
+          "workflowId",
+          "leaseGeneration"
+        ]
+      },
+      "verification": "lease grant is not evidence of page effects",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "released": {
+            "type": "boolean"
+          },
+          "tabId": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "released",
+          "tabId"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "webmcp_discover": {
+      "engine": "page",
+      "effect": "read",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "1.0.0",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "frameId": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "expectedDocumentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "tabId"
+        ],
+        "additionalProperties": false
+      },
+      "verification": "Experimental native consumer API required; explicit local origin/tool authorization; fallback DOM when absent",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "capability": {
+            "type": "object"
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "origin": {
+                  "type": "string"
+                },
+                "inputSchema": {
+                  "type": "object"
+                },
+                "untrusted": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "name",
+                "description",
+                "origin",
+                "inputSchema",
+                "untrusted"
+              ]
+            }
+          },
+          "documentId": {
+            "type": "string"
+          },
+          "fallback": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "capability",
+          "tools",
+          "documentId"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    },
+    "webmcp_invoke": {
+      "engine": "page",
+      "effect": "write",
+      "ordering": "tab",
+      "platforms": [
+        "firefox-android",
+        "firefox-desktop"
+      ],
+      "baselineVersion": "1.0.0",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tabId": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "frameId": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "workflowId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "leaseGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "toolName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "input": {},
+          "expectedSchema": {
+            "type": "object"
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 15000
+          },
+          "expectedDocumentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "tabId",
+          "toolName",
+          "input",
+          "expectedSchema"
+        ],
+        "additionalProperties": false
+      },
+      "verification": "Experimental native consumer API required; explicit local origin/tool authorization; fallback DOM when absent",
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "executed",
+              "unknown"
+            ]
+          },
+          "untrusted": {
+            "type": "boolean"
+          },
+          "documentId": {
+            "type": "string"
+          },
+          "actionMayHaveOccurred": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "outputOmitted": {
+            "type": "boolean"
+          },
+          "applicationVerified": {
+            "type": "boolean"
+          },
+          "result": {
+            "type": [
+              "object",
+              "array",
+              "string",
+              "boolean",
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "state",
+          "untrusted",
+          "documentId"
+        ]
+      },
+      "outputScope": "successful raw Firefox result before response projection; not native companion"
+    }
+  }
+}

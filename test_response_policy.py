@@ -20,11 +20,11 @@ def fixture():
 
 class ResponsePolicyTests(unittest.TestCase):
     def test_lean_defaults_do_not_override_explicit_limits_or_mutate_arguments(self):
-        self.assertEqual(prepare_arguments('read',{},'compact'),{'textLimit':2000,'maxElements':20,'selectors':False})
-        self.assertEqual(prepare_arguments('locate',{},'compact'),{'maxElements':20,'selectors':False})
+        self.assertEqual(prepare_arguments('read',{},'compact'),{'textLimit':2000,'maxElements':20,'selectors':False,'responseFields':['accessibleName','name','type','href','checked']})
+        self.assertEqual(prepare_arguments('locate',{},'compact'),{'maxElements':20,'selectors':False,'responseFields':['accessibleName','name','type','href','checked']})
         explicit={'textLimit':0,'maxElements':500,'selectors':True,'tabId':12}
         original=copy.deepcopy(explicit)
-        self.assertEqual(prepare_arguments('read',explicit,'compact'),explicit)
+        self.assertEqual(prepare_arguments('read',explicit,'compact'),{**explicit,'responseFields':['accessibleName','name','type','href','checked','selector']})
         self.assertEqual(explicit,original)
         self.assertEqual(prepare_arguments('read',{},'full'),{})
         self.assertEqual(prepare_arguments('inspect',{},'compact'),{})
@@ -169,7 +169,7 @@ class ResponsePolicyTests(unittest.TestCase):
         message={'method':'tools/call','params':{'name':'browser_command','arguments':{'device':'fixture','op':'read','args':{'tabId':12}}}}
         with patch.dict(os.environ,{'BROWSER_BRIDGE_TOKEN':'fixture-private-token'}),patch('mcp_server.execute_browser_command',return_value=fixture()) as execute:
             result=mcp_server.handle(message)
-            self.assertEqual(execute.call_args.args[-1],{'tabId':12,'textLimit':2000,'maxElements':20,'selectors':False})
+            self.assertEqual(execute.call_args.args[-1],{'tabId':12,'textLimit':2000,'maxElements':20,'selectors':False,'responseFields':['accessibleName','name','type','href','checked']})
             self.assertNotIn('rect',json.loads(result['content'][0]['text'])['elements'][0])
             message['params']['arguments']['resultMode']='full';result=mcp_server.handle(message)
             self.assertEqual(execute.call_args.args[-1],{'tabId':12})

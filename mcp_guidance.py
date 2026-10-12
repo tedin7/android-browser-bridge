@@ -6,7 +6,11 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 REMEDIES = {
-    'NAVIGATION_PRECONDITION': ['Call foreground for this tab and verify a readable HTTP(S) page before navigating.'],
+    'HOST_PERMISSION_REQUIRED': ['Firefox restricts extension access to this page or host permission is missing. A browser-generated connection-error page can produce the same error; check site reachability first.', 'For browser settings, installer dialogs or protected Mozilla pages, complete the step in Firefox manually; do not retry page injection or disable browser protections.', 'For an ordinary site, check the extension site-access permission before retrying.'],
+    'ACTION_UNCERTAIN': ['Use browser_status with actionId to reconcile this action before considering another mutation.', 'If identity or result retention expired, inspect application state; do not assume the action failed or repeat it automatically.'],
+    'LEASE_CONFLICT': ['Another workflow owns this tab; use a separate tab or wait for its lease to finish.'],
+    'LEASE_EXPIRED': ['Inspect the current page before starting a new workflow; prior actions may have completed.'],
+    'NAVIGATION_PRECONDITION': ['Call foreground for this tab and inspect its state.', 'For a browser connection-error page, first restore server reachability, then submit one reload with waitUntil:none and verify read afterward. Protected browser error pages cannot be read by the extension.'],
     'NAVIGATION_TIMEOUT': ['Inspect read and browser_status before repeating navigation; it was already submitted once.', 'Call foreground if Android suspended the page.'],
     'ANDROID_FOREGROUND_FAILED': ['Open Firefox on Android manually.', 'Check the configured Firefox package and local Termux activity launcher.'],
     'PAGE_RESPONSE_TIMEOUT': ['Call foreground with this tabId and inspect the current page state.', 'The page may be suspended and the action may have occurred; do not blindly repeat a modifying action.'],
@@ -34,22 +38,25 @@ REMEDIES = {
     'COMMAND_TIMEOUT': ['Inspect current page state before repeating any action.', 'The action may already have occurred; do not retry blindly.'],
     'NETWORK_ERROR': ['Check broker availability and network.', 'Inspect current page state before repeating an action; delivery may have occurred.'],
 }
-PRECONDITION_CODES = set(REMEDIES) - {'TIMEOUT','COMMAND_TIMEOUT','NETWORK_ERROR','PAGE_RESPONSE_TIMEOUT','CANCELED','INVALID_VALUE','NAVIGATION_TIMEOUT','VIEWPORT_MEASUREMENT_UNAVAILABLE'}
+PRECONDITION_CODES = set(REMEDIES) - {'TIMEOUT','COMMAND_TIMEOUT','NETWORK_ERROR','PAGE_RESPONSE_TIMEOUT','CANCELED','INVALID_VALUE','NAVIGATION_TIMEOUT','VIEWPORT_MEASUREMENT_UNAVAILABLE','ACTION_UNCERTAIN','LEASE_EXPIRED'}
 
 def failure(error, device=None, operation=None):
     message=str(error)
     match=re.match(r'^([A-Z][A-Z_]+):', message)
     code=match.group(1) if match else 'ACTION_ERROR'
     if 'Device offline' in message: code='DEVICE_OFFLINE'
+    elif 'Missing host permission' in message: code='HOST_PERMISSION_REQUIRED'
     elif 'Unauthorized' in message: code='UNAUTHORIZED'
     elif 'Timed out; execution may have occurred' in message: code='COMMAND_TIMEOUT'
     elif isinstance(error,(OSError,ConnectionError)): code='NETWORK_ERROR'
     result={'code':code,'message':message,'operation':operation,'device':device,
         'actionMayHaveOccurred':code not in PRECONDITION_CODES and operation not in {'tabs','read','inspect','locate','capabilities','frames','screenshot','wait'},
-        'retryableAfterRecovery':code in REMEDIES and code not in {'COMMAND_TIMEOUT','NETWORK_ERROR','PAGE_RESPONSE_TIMEOUT','NAVIGATION_TIMEOUT','VIEWPORT_MEASUREMENT_UNAVAILABLE'},
+        'retryableAfterRecovery':code in REMEDIES and code not in {'COMMAND_TIMEOUT','NETWORK_ERROR','PAGE_RESPONSE_TIMEOUT','NAVIGATION_TIMEOUT','VIEWPORT_MEASUREMENT_UNAVAILABLE','ACTION_UNCERTAIN','LEASE_EXPIRED','HOST_PERMISSION_REQUIRED'},
         'nextSteps':REMEDIES.get(code,['Inspect the current page and capabilities before deciding whether to repeat the operation.'])}
     command=re.search(r'Command ID: ([a-zA-Z0-9_-]+)',message)
     if command:result['commandId']=command.group(1)
+    action=re.search(r'Action ID: ([a-zA-Z0-9_-]+)',message)
+    if action:result['actionId']=action.group(1)
     return result
 
 def local_android_foreground(device, origin):

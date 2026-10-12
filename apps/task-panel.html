@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Browser Bridge task</title>
+<style>body{font:15px system-ui,sans-serif;margin:0;padding:20px;color:var(--color-text-primary,#162633);background:var(--color-background-primary,#f5f8fa)}main{max-width:640px;margin:auto}h1{font-size:20px;margin:0 0 12px}p{line-height:1.45}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;padding:12px;border:1px solid #b8c7ce;border-radius:10px}button{font:inherit;padding:10px 14px;margin:4px 8px 4px 0;border:1px solid #82959f;border-radius:8px;background:transparent;color:inherit;cursor:pointer}button:disabled{opacity:.5;cursor:default}.note{font-size:13px;color:var(--color-text-secondary,#4c6470)}</style></head>
+<body><main><h1>Browser Bridge task</h1><p id="status" role="status">Connecting to the host…</p><pre id="receipt">Waiting for a task result.</pre><button id="refresh" disabled>Refresh status</button><button id="cancel" disabled>Request cancellation</button><p class="note">Cancellation stops future work when acknowledged. Completed actions are not undone.</p></main>
+<script>
+(() => {
+  'use strict';
+  const status = document.getElementById('status'), receipt = document.getElementById('receipt');
+  const refresh = document.getElementById('refresh'), cancel = document.getElementById('cancel');
+  const pending = new Map();
+  let nextId = 1, ready = false, tools = false, taskId = null, busy = false, closed = false, hostOrigin = null, current = null;
+  const validId = id => typeof id === 'string' && /^[A-Za-z0-9_.:-]{1,128}$/.test(id);
+  const send = message => window.parent.postMessage({jsonrpc: '2.0', ...message}, '*');
+  function controls() {
+    refresh.disabled = !ready || !tools || !taskId || busy || closed;
+    cancel.disabled = refresh.disabled || current?.state !== 'working' || current?.cancelRequested === true;
+  }
+  function request(method, params) {
+    return new Promise((resolve, reject) => {
+      const id = nextId++;
+      const timer = setTimeout(() => { pending.delete(id); reject(Error('Host request timed out')); }, 10000);
+      pending.set(id, {resolve, reject, timer});
+      send({id, method, params});
+    });
+  }
+  function taskResult(result) {
+    if (result?.isError) throw Error('Task unavailable through this connection');
+    let task = result?.structuredContent;
+    if (!task) {
+      const block = result?.content?.find(item => item.type === 'text' && typeof item.text === 'string' && item.text.length <= 65536);
+      if (block) { try { task = JSON.parse(block.text); } catch {} }
+    }
+    if (!task || !validId(task.taskId) || (taskId && task.taskId !== taskId)) throw Error('Task result did not match this panel');
+    taskId = task.taskId;
+    const states = ['working', 'completed', 'failed', 'cancelled', 'unknown'];
+    current = {taskId, state: states.includes(task.state) ? task.state : 'unknown', cancelRequested: task.cancelRequested === true};
+    const display = {...current};
+    if (typeof task.progress === 'number' && Number.isFinite(task.progress) && task.progress >= 0 && task.progress <= 1) display.progress = task.progress;
+    display.receipt = {};
+    for (const key of ['status', 'verified', 'actionMayHaveOccurred', 'code', 'actionId', 'commandId']) {
+      const value = task.receipt?.[key];
+      if (typeof value === 'boolean' || typeof value === 'string' && value.length <= 160) display.receipt[key] = value;
+    }
+    receipt.textContent = JSON.stringify(display, null, 2);
+    status.textContent = current.cancelRequested && current.state === 'working' ? 'Cancellation requested; waiting for acknowledgement.' : 'Task state: ' + current.state;
+    controls();
+  }
+  async function action(kind) {
+    if (!ready || !tools || !taskId || busy || closed || !['get', 'cancel'].includes(kind)) return;
+    if (kind === 'cancel' && (current?.state !== 'working' || current?.cancelRequested)) return;
+    busy = true; controls();
+    try { taskResult(await request('tools/call', {name: 'browser_task', arguments: {action: kind, taskId}})); }
+    catch { status.textContent = 'Task unavailable. Refresh status before requesting another action.'; }
+    finally { busy = false; controls(); }
+  }
+  refresh.addEventListener('click', () => action('get'));
+  cancel.addEventListener('click', () => action('cancel'));
+  window.addEventListener('message', event => {
+    if (closed || event.source !== window.parent || hostOrigin !== null && event.origin !== hostOrigin) return;
+    const message = event.data;
+    if (!message || message.jsonrpc !== '2.0') return;
+    if (pending.has(message.id)) {
+      const item = pending.get(message.id); pending.delete(message.id); clearTimeout(item.timer);
+      if (hostOrigin === null) hostOrigin = event.origin;
+      if (message.error) item.reject(Error('Host rejected request')); else item.resolve(message.result);
+      return;
+    }
+    if (!ready) return;
+    if (message.method === 'ui/notifications/tool-input') {
+      const id = message.params?.arguments?.taskId;
+      if (!taskId && validId(id)) { taskId = id; controls(); }
+    } else if (message.method === 'ui/notifications/tool-result') {
+      try { taskResult(message.params); } catch { status.textContent = 'Waiting for a matching task receipt.'; }
+    } else if (message.method === 'ui/resource-teardown') {
+      send({id: message.id, result: {}}); closed = true;
+      for (const item of pending.values()) { clearTimeout(item.timer); item.reject(Error('Panel closed')); }
+      pending.clear(); controls();
+    } else if (message.method === 'ping' && message.id !== undefined) send({id: message.id, result: {}});
+  });
+  if (window.parent === window) { status.textContent = 'Open this panel in an MCP Apps host.'; return; }
+  request('ui/initialize', {appInfo: {name: 'Browser Bridge task panel', version: '1.0.0'}, appCapabilities: {availableDisplayModes: ['inline']}, protocolVersion: '2026-01-26'}).then(result => {
+    if (result?.protocolVersion !== '2026-01-26') throw Error('Unsupported app protocol');
+    tools = Boolean(result.hostCapabilities?.serverTools);
+    ready = true;
+    send({method: 'ui/notifications/initialized'});
+    status.textContent = tools ? 'Waiting for the task result.' : 'Host can display results but does not allow task controls.';
+    controls();
+  }).catch(() => { status.textContent = 'MCP Apps connection unavailable. Use browser_task through your client.'; controls(); });
+})();
+</script></body></html>

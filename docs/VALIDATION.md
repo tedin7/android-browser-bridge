@@ -243,3 +243,122 @@ closed on exit. Normal runner startup does not disable browser sandboxes.
 These desktop checks do not establish installation of extension 0.3.1 on the
 user's tablet. Computed layout needs the new engine; compact text works with
 the older installed extension.
+
+
+## Runtime 1.0 candidate, 2026-10-12
+
+The candidate passed 167 Python unit/integration tests, all 12 JavaScript/Node
+suites, generated-contract drift checking, and packaged stdio MCP smoke testing.
+A fresh desktop Firefox profile with the real extension passed the interaction
+suite (forms, blocked controls, references, Shadow DOM, frames, screenshots,
+navigation, concurrent pages), plus leased `browser_step`, observation deltas,
+broker-owned tasks, modern MCP Tasks completion/result recovery and resources.
+Mozilla web-ext 10 lint reported zero errors, notices and warnings.
+
+These tests do not prove Android execution of the candidate. Live discovery on
+the user's tablet still reported extension 0.3.1 before the requested update.
+The candidate XPI was placed in Android Downloads; its installation prompt is
+outside the extension's page-control surface. A Mozilla Developer Hub tab was
+opened, but Firefox returned “Missing host permission for the tab” when asked
+to read it. No authenticated AMO signing or marketplace submission is claimed.
+
+The companion passed Android release compilation, JVM policy tests and lint,
+then APK v2 signature verification and a non-debuggable manifest check. Its
+public certificate and artifact hashes are in companion/README.md. Physical
+installation, Accessibility consent and native runtime tests remain pending.
+
+The fixed CDP adapter passed protocol tests. The local owned Chromium process
+exited with SIGTRAP in this environment, so live Chromium diagnostics are not
+claimed. MCP Apps passed a host-protocol simulation; no real supporting host is
+claimed. WebMCP permission/fallback tests passed; Firefox Android native WebMCP
+availability is not assumed.
+
+Concrete benchmark fixtures and launchers exist for Codex and Claude. The lost
+response fixture commits a controlled application effect and closes its HTTP
+response; this is application-response loss, not an MCP network fault. No paid
+16-episode baseline/candidate matrix or measured token-saving percentage is
+claimed. Candidate promotion remains blocked until the explicit release gates
+are satisfied.
+
+
+### Physical Android extension confirmation
+
+After the user installed the candidate, live MCP discovery confirmed Firefox
+Android extension **1.0.0**. On the owned local interaction fixture,
+`validate_runtime.py` passed leased fill-and-verify, a region observation delta,
+and modern MCP Tasks completion after closing and reopening the MCP client.
+The single local workflow sample was 103.35 ms; this is a single sample, not a
+latency benchmark or a model-token measurement. WebMCP returned disabled and
+native-consumer-API unavailable with a DOM fallback, as expected for this device.
+
+The previous standalone fixture server on port 18973 had exited: an HTTP probe
+returned connection refused. Restarting it and reloading the same tab restored
+readability. The candidate now packages `/fixture` and `/frame` directly in the
+broker so the standard interaction lab shares the broker's lifetime. A server's
+loopback address still refers to that server; use the tablet-reachable broker
+origin. Firefox error pages themselves reject extension injection, which can
+surface as a host-permission error; recovery guidance now distinguishes this.
+
+The native companion was installed and paired by the user, but Accessibility
+was blocked by Android restricted settings at this point. Pairing is not a
+claim of active native control or a passed native-runtime test.
+
+
+### Live model connectivity smoke on arvos-next
+
+Two read-only model sessions called device discovery and capabilities against
+the real paired Firefox: Codex CLI 0.162.1 with gpt-6.1-sol, and Claude Code
+2.1.296 with the configured opus alias. Each emitted two completed tool calls.
+Codex reported 87,999 inclusive input tokens (65,280 cached) and 141 output;
+Claude reported 25,449 inclusive input (12,369 cache reads) and 204 output.
+These are whole-client counters, not MCP-only usage and not a matched benchmark.
+The per-client smoke input budget was exceeded because counters arrived only
+at turn completion; both process groups were then stopped and not retried.
+Claude's final output included the observed 1.0.0 version; the smoke collector
+did not confirm Codex's final text. This is not a passed release gate.
+
+Subsequently, progressive tool-schema disclosure reduced serialized discovery
+from 10,440 to approximately 9,016 bytes while preserving operation contracts
+on demand. This byte comparison is not a token-saving estimate; no further
+paid model runs were performed to claim a measured token improvement.
+
+
+### Final local candidate deployment and native scope check
+
+The final Python regression run passed **171 tests**. Generated operation
+contracts and `git diff --check` also passed. The action journal now leaves
+ordinary observations unjournaled unless an explicit action identity is supplied;
+mutations retain deduplication identities and reject full capacity before
+dispatch. Regression checks cover read traffic at capacity and client quotas.
+
+The local installed MCP package and persistent broker were upgraded with a
+private stopped-broker state backup. Health reports 1.0.0 and the broker-owned
+`/fixture` returns HTTP 200. The existing Android fixture tab was migrated to
+that origin. A fresh installed MCP client again passed leased fill/verification,
+observation delta and durable task recovery after client reconnection. The
+single workflow sample was 161 ms, not a latency benchmark.
+
+Companion 0.1.1 was physically installed, paired and Accessibility-authorized.
+An actual native read returned the Firefox fixture with package
+`org.mozilla.fenix` while the user used split screen (Termux left, Firefox right).
+A visible pane and Android active-window input focus are different: the same
+policy correctly refused reads while Termux had that focus. A single native
+click request for the fixture button expired waiting for local approval and
+returned `APPROVAL_REQUIRED`, `actionMayHaveOccurred:false`; no retry was made.
+Native mutation success is therefore not claimed. Empty accessibility
+descriptions were found to hide nonempty node text; the source fix uses the
+first nonblank description, text or hint and preserves package restrictions.
+
+The final remote installation on `arvos-next` updated both Codex and Claude
+registrations. Fresh stdio sessions using each registration reported 1.0.0 and
+ten tools; separate private scoped profiles were retained. A single workflow
+validation from that server through the Codex scoped profile passed on the real
+Android fixture: verified step (567 ms single sample), delta observation and
+verified durable task after client reconnection. No model invocation was used
+for this final deployment check.
+
+Companion 0.1.2/code 3 packages the accessibility label fix. Six release JVM tests
+passed with no failures, errors or skips; lint and release compilation passed.
+APK v2 signing and non-debuggable status were verified, using the same signing
+certificate. The APK is ready in Android Downloads; installation and physical
+verification of this label fix remain pending.

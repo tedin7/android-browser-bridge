@@ -106,3 +106,14 @@ L’estensione 0.2.1 con MCP 0.2.2 ha superato sul tablet Android tutte le 30
 operazioni, incluse pagine in parallelo, ricerca dei controlli e screenshot.
 L’aggiornamento MCP 0.2.2 avviene sul Linux e non richiede reinstallare l’estensione
 0.2.1. Vedi [VALIDATION.md](VALIDATION.md) per risultati e limiti verificati.
+
+
+## Pagina di prova persistente
+
+Con il broker 1.0 in esecuzione, apri `/fixture` sul suo indirizzo raggiungibile
+**dal tablet**, per esempio `http://127.0.0.1:8766/fixture` solo quando il broker
+è sul tablet stesso. La fixture è inclusa nel broker: non richiede un secondo
+server temporaneo. Se il browser mostra “Unable to connect”, verifica prima che
+il broker risponda su `/health`. Una pagina di errore interna Firefox può
+impedire la lettura MCP con “Missing host permission”; dopo aver ripristinato
+il server, ricarica una sola volta e verifica il documento caricato.

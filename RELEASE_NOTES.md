@@ -1,3 +1,35 @@
+# 1.0 runtime candidate — not promoted
+
+This checkout adds bounded active queues independent of retained history,
+client-scoped credentials, durable action identities, compact result recovery,
+separate MCP control workers and extension-enforced tab workflow leases.
+`browser_step` combines fixed actions with explicit verification;
+`browser_observe` returns bounded region snapshots/deltas; `browser_task`
+persists cancellable workflows and private selected results.
+
+A generated registry supplies input validation before browser dispatch and raw
+Firefox output contracts. Observed references reject changed role/name/type;
+optional document preconditions reject navigation changes before action.
+DOM projection avoids unrequested descriptors and metadata-only enumeration.
+
+Optional adapters include versioned MCP discovery, opt-in polling Tasks,
+MCP Apps task status/cancel, JSON CLI with private artifact downloads,
+disabled-by-default WebMCP, and local fixed CDP diagnostics. The separate Android
+companion has a signed non-debuggable release candidate; native permissions and
+one-use mutation approvals remain under local user control.
+
+The release gate has concrete fixtures, independent state verification, actual
+client usage parsers and bounded Codex/Claude launchers. No token-savings claim
+or stable 1.0 promotion is made before the complete live benchmark and Android
+candidate validation. Mozilla signing/marketplace, real MCP Apps host and native
+physical-runtime validation remain separate gates. See docs/VALIDATION.md,
+docs/RUNTIME_1_0_ROADMAP.md and companion/README.md.
+
+The installer backs up the previous package and supports explicit package-only
+rollback. Pairing is preserved. Existing running MCP processes load new tool
+schemas only after their host reconnects/restarts them; replacing a package does
+not restart another user's session.
+
 # 0.3.1 development — lean MCP responses and fixed desktop layout audits
 
 Compact browser_command responses are now the default: read starts at 2,000
