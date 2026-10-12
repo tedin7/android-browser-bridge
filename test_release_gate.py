@@ -53,7 +53,7 @@ class ReleaseGateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             data = config(directory)
             validate_config(data)
-            data['limits'] = {'inputTokens': 300001}
+            data['limits'] = {'inputTokens': 2500001}
             with self.assertRaises(ValueError):
                 validate_config(data)
             del data['limits']

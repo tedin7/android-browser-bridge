@@ -162,6 +162,33 @@ def execute_browser_command(url, token, device, operation, arguments):
         return result
 
 
+def scoped_credential():
+    """Scoped client tokens (abb_client_) cannot use admin endpoints."""
+    try:
+        token = os.environ.get("BROWSER_BRIDGE_TOKEN") or open(os.environ.get("BROWSER_BRIDGE_TOKEN_FILE", str(ROOT / "state/token"))).read().strip()
+    except OSError:
+        return False
+    return token.startswith("abb_client_")
+
+
+COMMAND_ENVELOPE = {"device", "op", "args", "resultMode", "resultFields"}
+
+
+def normalize_command_arguments(arguments):
+    """Accept operation arguments misplaced beside op (a frequent model slip that otherwise costs a retry turn)."""
+    if not isinstance(arguments.get("args", {}), dict):
+        return arguments  # prepare_arguments reports the invalid type
+    values = dict(arguments.get("args") or {})
+    known = command_tool["inputSchema"]["properties"]["args"]["properties"]
+    for key in [key for key in arguments if key not in COMMAND_ENVELOPE and key in known]:
+        values.setdefault(key, arguments[key])
+    for key in ("tabId", "frameId"):
+        if isinstance(values.get(key), str) and values[key].isdigit():
+            values[key] = int(values[key])
+    # Unknown keys stay in place so response_options still rejects them.
+    return {**{key: value for key, value in arguments.items() if key not in known or key in COMMAND_ENVELOPE}, "args": values}
+
+
 def handle(message):
     method = message.get("method")
     if method == "initialize":
@@ -174,7 +201,7 @@ def handle(message):
     if method == "ping":
         return {}
     if method == "tools/list":
-        return {"tools": project_tools(TOOLS,full=os.environ.get("BROWSER_BRIDGE_FULL_TOOL_SCHEMAS")=="1")}
+        return {"tools": project_tools(TOOLS,full=os.environ.get("BROWSER_BRIDGE_FULL_TOOL_SCHEMAS")=="1",scoped=scoped_credential())}
     if method == "tools/call":
         try:
             url = os.environ.get("BROWSER_BRIDGE_URL", "http://127.0.0.1:8766")
@@ -233,6 +260,7 @@ def handle(message):
             elif params["name"] == "browser_revoke":
                 result = broker_api(url, token, "/api/revoke", {"device": args["device"]})
             elif params["name"] == "browser_command":
+                args = normalize_command_arguments(args)
                 mode, fields = response_options(args)
                 values = prepare_arguments(args['op'], args.get('args', {}), mode)
                 result = execute_browser_command(url, token, args['device'], args['op'], values)

@@ -22,7 +22,8 @@ SCENARIOS = {
     'concurrent_tabs': 'Use two fixture tabs with independent values alpha and beta, preserving both values and verifying each result without mixing tab identities.',
     'uncertain_result': 'Complete the fixture action once. The fixture injects a lost response. Reconcile the known action identity and verify the outcome before any retry; do not duplicate the effect.',
 }
-CAPS = {'inputTokens': 300000, 'outputTokens': 20000, 'wallSeconds': 1200}
+# Whole-matrix caps (16 episodes), not per episode: each agent turn resends its full context.
+CAPS = {'inputTokens': 2500000, 'outputTokens': 100000, 'wallSeconds': 7200}
 
 
 def argv(value):

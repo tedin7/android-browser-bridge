@@ -30,7 +30,7 @@ Configuration version 1 contains:
     "verify": ["/absolute/path/fixture-hook", "verify"],
     "cleanup": ["/absolute/path/fixture-hook", "cleanup"]
   },
-  "limits": {"inputTokens": 300000, "outputTokens": 20000, "wallSeconds": 1200}
+  "limits": {"inputTokens": 2500000, "outputTokens": 100000, "wallSeconds": 7200}
 }
 ```
 
@@ -59,7 +59,7 @@ python3 -m unittest -q test_release_gate
 
 Without `--run`, only configuration structure is validated and `executed:false` is recorded. Reports are atomically written with mode 0600. A run stops after a failed/unverified episode, missing usage, any budget cap or cleanup failure. Incomplete matrices cannot pass. No automatic retry starts further paid work.
 
-Token limits are checked as clients emit usage; clients commonly emit totals only after a turn, so one turn can overshoot before accounting arrives. Wall-time enforcement terminates the process group independently. Cleanup can add up to ten seconds after the model budget expires. Processes are capped to 16 MiB output, and output text is discarded after parsing metadata. The report's `promotable` field means **this success/usage gate passed**, not that all roadmap gates passed.
+Limits apply to the whole 16-episode matrix, not to each episode. Inclusive input counts every model turn, and each turn resends the agent's full context (instructions, tool schemas, history), so a short form episode measured about 105k (Codex) and 141k (Claude) inclusive input tokens. Token limits are checked as clients emit usage; clients commonly emit totals only after a turn, so one turn can overshoot before accounting arrives. Wall-time enforcement terminates the process group independently. Cleanup can add up to ten seconds after the model budget expires. Processes are capped to 16 MiB output, and output text is discarded after parsing metadata. The report's `promotable` field means **this success/usage gate passed**, not that all roadmap gates passed.
 
 `observedToolCalls` counts recognized metadata tool records (Codex MCP calls, Claude tool-use records); those client categories are not directly interchangeable and neither is an inference count. The harness explicitly marks the 30% **model-call reduction** target as unmeasured. It cannot certify that optimization, transport timing, Android power consumption, signing, publication or external marketplace review. Other release gates must establish those separately.
 
