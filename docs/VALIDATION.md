@@ -467,3 +467,29 @@ turn only to discover option values; this removes that turn without any MCP chan
 so a newer MCP still works with extension 1.0.0. Node suites, the new
 `test_select_options.js` and web-ext lint (0 errors, 0 warnings) passed. Version 1.0.1
 is Mozilla-signed for unlisted distribution; installation on the tablet is pending.
+
+### Release gate run, 12 October 2026 (baseline 0.3.1 vs candidate 1.0.1)
+
+Full 16-episode matrix on the OnePlus Pad 3 Firefox Nightly, agents on the owned
+SSH host: Codex CLI 0.162.1 (`gpt-6.1-sol`, low effort, read-only sandbox, only the
+bridge MCP pre-approved, isolated home) and Claude Code 2.1.296 (`claude-opus-5-5`,
+strict MCP config, bridge tools only). All 16 episodes verified independently;
+`promotable: true`, `baselineUnverified: 0`.
+
+| Client | Baseline input | Candidate input | Change | Tool calls (b → c) |
+|---|---|---|---|---|
+| Codex | 452,706 | 429,184 | −5.2% | 21 → 15 |
+| Claude | 252,612 | 241,785 | −4.3% | 22 → 22 |
+| Total | 705,318 | 670,969 | −4.9% | 43 → 37 |
+
+One sample per cell; the same candidate scenario varied by up to ~25% between runs,
+so these differences are within run-to-run noise except the call-count reduction.
+The 30% target is not met by this run.
+
+Fixes found while preparing it: the lost-response fixture caused Firefox to resend
+the POST (fixed with a 504 reply); the gate stopped on baseline failures (baseline
+is now recorded); limits are whole-matrix caps. After the run, usage rules moved
+into the browser_command description and the Codex skill became a pointer, removing
+the per-session skill-reading turn. Targeted Codex re-runs then measured form
+79.3k (baseline run 137.0k) and two tabs 79.8k (baseline run 75.8k) input tokens,
+both verified; these are single samples, not a new full matrix.
