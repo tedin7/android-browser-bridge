@@ -13,6 +13,7 @@ import android.os.SystemClock
 import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
+import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
@@ -24,7 +25,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 class BridgeAccessibilityService : AccessibilityService() {
     companion object {
-        const val VERSION = "0.2.3-experimental"
+        const val VERSION = "0.2.5-experimental"
         /** True while Android has this service bound in this process; the most direct evidence it is enabled. */
         val connected = AtomicBoolean(false)
     }
@@ -556,7 +557,13 @@ class BridgeAccessibilityService : AccessibilityService() {
         var method = "ime_enter_action"
         var tapped: Pair<Int, Int>? = null
         val problem = JSONObject()
-        val executed = if (supportsAction && !args.optBoolean("force", false)) input.performAction(imeActionId!!) else {
+        // Android 13+: the service's own input connection sends a real Enter key to the focused
+        // editor, with or without an on-screen keyboard (physical keyboards hide its Enter key).
+        val keySent = Build.VERSION.SDK_INT >= 33 && !args.optBoolean("force", false) && sendEnterKey()
+        val executed = if (keySent) {
+            method = "input_connection_key"
+            true
+        } else if (supportsAction && !args.optBoolean("force", false)) input.performAction(imeActionId!!) else {
             method = "keyboard_tap"
             val keyboard = allWindows().firstOrNull { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
             val key = keyboard?.root?.let { keyboardRoot ->
@@ -569,7 +576,8 @@ class BridgeAccessibilityService : AccessibilityService() {
                 found
             }
             if (keyboard == null) problem.put("reason", "keyboard_not_visible")
-            else if (key == null) problem.put("reason", "enter_key_not_found")
+            else if (key == null) problem.put("reason", "enter_key_not_found").put("keyboardPackage", keyboard.root?.packageName?.toString() ?: JSONObject.NULL)
+                .put("keys", JSONArray(keyLabels(keyboard.root)))
             else tapped = tap(key, keyboard, problem)
             tapped != null
         }
@@ -579,6 +587,26 @@ class BridgeAccessibilityService : AccessibilityService() {
         if (before != null) pendingVerification = PendingVerification("press", current, root.windowId, input, before, null)
         val result = JSONObject().put("executed", true).put("package", current).put("method", method).put("verified", false)
         tapped?.let { result.put("tapPoint", JSONObject().put("x", it.first).put("y", it.second)) }
+        return result
+    }
+    /** Enter through this service's own input connection (Android 13+); false when no editor is bound. */
+    @android.annotation.TargetApi(33)
+    private fun sendEnterKey(): Boolean {
+        val connection = inputMethod?.currentInputConnection ?: return false
+        connection.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+        connection.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
+        return true
+    }
+    /** Short labels and ids of clickable keyboard keys, for diagnosing an unknown Enter key; never typed text. */
+    private fun keyLabels(root: AccessibilityNodeInfo?): List<String> {
+        val result = mutableListOf<String>(); val queue = ArrayDeque(listOfNotNull(root)); var seen = 0
+        while (queue.isNotEmpty() && result.size < 60 && ++seen < 2000) {
+            val node = queue.removeFirst()
+            val name = node.contentDescription?.toString().orEmpty()
+            val id = node.viewIdResourceName?.substringAfter(":id/").orEmpty()
+            if (node.isVisibleToUser && (node.isClickable || id.startsWith("key")) && name.length <= 20 && node.text.isNullOrEmpty()) result += "$name|$id"
+            for (i in 0 until node.childCount) node.getChild(i)?.let(queue::addLast)
+        }
         return result
     }
     private fun denied(code: String, next: String): JSONObject = JSONObject().put("error", JSONObject().put("code", code).put("actionMayHaveOccurred", false).put("nextSteps", JSONArray().put(next)))

@@ -552,3 +552,14 @@ then, with `force:true` or when the field lacks that action, a real tap on the
 on-screen keyboard's action key (matched by label or `ime_action` resource id).
 The broker accepts `press` and `key` for companion devices. Unit tests (26) and lint
 passed; versionCode 10, same publisher certificate (SHA-256 `19e19207…49625`).
+
+### Companion 0.2.4–0.2.5: Enter with a physical keyboard attached
+
+Firefox exposes no `ACTION_IME_ENTER` on web fields, and with a physical keyboard
+attached Gboard shrinks to a toolbar without an Enter key (0.2.4 reports the visible
+key labels when the key is not found, never typed text). 0.2.5 declares
+`flagInputMethodEditor` and, on Android 13+, sends a real Enter through the
+accessibility service's own input connection to the focused editor. On the tablet
+this started Search Console's URL inspection, which then accepted "Request
+indexing" (the inspection page uses an opaque id, so its URL cannot be built
+directly). versionCode 12, same publisher certificate (SHA-256 `9b8f2f07…a67b9c`).

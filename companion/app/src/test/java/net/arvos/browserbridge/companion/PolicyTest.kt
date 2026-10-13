@@ -108,6 +108,9 @@ class PolicyTest {
         assertFalse(Policy.isEnterKey("e", "com.google.android.inputmethod.latin:id/key_pos_0_4"))
         assertFalse(Policy.isEnterKey("Spazio", null))
         assertFalse(Policy.isEnterKey("Search settings", null))
+        assertTrue(Policy.isEnterKey("Tasto Invio", null))
+        assertTrue(Policy.isEnterKey("Enter key", null))
+        assertTrue(Policy.isEnterKey("", "com.oplus.keyboard:id/key_enter_icon"))
     }
     @Test fun verificationReportsObservableEvidenceOnly() {
         val before = Policy.Observation("w1", "t1", "false:false", "old")

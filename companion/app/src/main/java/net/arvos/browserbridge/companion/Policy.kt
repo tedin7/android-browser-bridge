@@ -42,7 +42,10 @@ object Policy {
     private val enterWords = setOf("enter", "invio", "search", "cerca", "go", "vai", "done", "fine", "send", "invia", "next", "avanti", "return", "↵", "⏎")
     fun isEnterKey(label: String, viewId: String?): Boolean {
         val id = viewId?.substringAfter(":id/")?.lowercase() ?: ""
-        return label.trim().lowercase() in enterWords || id.contains("ime_action") || id == "key_enter" || id.endsWith("_enter")
+        // Whole words only: "Tasto Invio" and "Enter key" match, "Search settings" does not.
+        val words = label.trim().lowercase().split(Regex("[^\\p{L}↵⏎]+")).filter { it.isNotEmpty() }
+        val keyWords = words.filterNot { it in setOf("key", "tasto", "button", "pulsante") }
+        return (keyWords.size == 1 && keyWords.single() in enterWords) || id.contains("ime_action") || id.contains("enter") || id.contains("action_key")
     }
     fun accessibleLabel(description: CharSequence?, text: CharSequence?, hint: CharSequence?): String =
         sequenceOf(description, text, hint).mapNotNull { it?.toString() }
