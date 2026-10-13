@@ -17,7 +17,7 @@ from tool_schema_policy import project_tools
 from mcp_app import resource_descriptor, read_resource, tool_metadata
 from mcp_guidance import failure, local_android_foreground
 from browser_navigation import execute_navigation, NAVIGATION_OPERATIONS
-from response_policy import response_options, prepare_arguments, project_response, image_content, serialize_result, RESULT_FIELDS
+from response_policy import response_options, prepare_arguments, project_response, image_content, serialize_result, RESULT_FIELDS, native_elements
 from command_order import CommandOrder
 from observation_cache import ObservationCache
 OBSERVATIONS=ObservationCache()
@@ -162,6 +162,31 @@ def execute_browser_command(url, token, device, operation, arguments):
         return result
 
 
+NATIVE_QUERY_KEYS = ('name', 'role', 'label', 'textQuery', 'exact')
+
+
+def native_by_name(operation, values):
+    return operation in {'click', 'fill'} and 'package' in values and 'ref' not in values and any(key in values for key in NATIVE_QUERY_KEYS[:4])
+
+
+def resolve_native_target(url, token, device, operation, values):
+    """Companion click/fill by name in one call: locate, drop duplicate container nodes, act on
+    the single match. A stale reference means nothing ran, so it retries with a fresh lookup."""
+    query = {key: values[key] for key in ('package',) + NATIVE_QUERY_KEYS if key in values}
+    action = {key: value for key, value in values.items() if key not in NATIVE_QUERY_KEYS}
+    result = None
+    for _ in range(3):
+        found = execute_browser_command(url, token, device, 'locate', {**query, 'maxElements': 20})
+        elements, _ = native_elements(found.get('elements', []) if isinstance(found, dict) else [])
+        if len(elements) != 1:
+            # The companion reports TARGET_NOT_FOUND / TARGET_NOT_UNIQUE exactly as before.
+            return execute_browser_command(url, token, device, operation, values)
+        result = execute_browser_command(url, token, device, operation, {**action, 'ref': elements[0]['ref']})
+        if not (isinstance(result, dict) and isinstance(result.get('error'), dict) and result['error'].get('code') == 'STALE_REFERENCE'):
+            return result
+    return result
+
+
 # Every model turn resends the whole context: these rules exist to keep tasks to two calls.
 SERVER_INSTRUCTIONS = ("Use the given device and tabId; call browser_devices only if none is known. "
     "Put operation arguments inside args. Aim for two browser_command calls per task: one batch of read steps "
@@ -273,7 +298,10 @@ def handle(message):
                 args = normalize_command_arguments(args)
                 mode, fields = response_options(args)
                 values = prepare_arguments(args['op'], args.get('args', {}), mode)
-                result = execute_browser_command(url, token, args['device'], args['op'], values)
+                if native_by_name(args['op'], values):
+                    result = resolve_native_target(url, token, args['device'], args['op'], values)
+                else:
+                    result = execute_browser_command(url, token, args['device'], args['op'], values)
                 return serialize_result(args['op'], result, mode, fields, values)
             else:
                 raise ValueError("Unknown tool")

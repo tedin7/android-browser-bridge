@@ -1,8 +1,8 @@
 /* Resident fixed-operation engine. No remotely supplied scripts or expressions. */
 (() => {
-  if (globalThis.__browserBridgePageVersion === "1.0.2") return;
+  if (globalThis.__browserBridgePageVersion === "1.0.3") return;
   if (globalThis.__browserBridgePageListener) browser.runtime.onMessage.removeListener(globalThis.__browserBridgePageListener);
-  const engineVersion = "1.0.2";
+  const engineVersion = "1.0.3";
   globalThis.__browserBridgePageVersion = engineVersion;
   const epoch = Math.random().toString(36).slice(2, 10);
   let nextRef = 0;
@@ -346,6 +346,8 @@
     if ("value" in el && typeof el.value === "string") parts.push("value=" + el.value);
     return parts.join("|");
   }
+  // Apps rewrite their own URL encoding (%3A -> :) without navigating.
+  function sameUrl(a, b) { try { return decodeURIComponent(a) === decodeURIComponent(b); } catch (_) { return a === b; } }
   function linked(a, b) { return composedContains(a, b) || composedContains(b, a); }
   async function observeEffect(el, action) {
     if (typeof MutationObserver !== "function" || typeof addEventListener !== "function") return action();
@@ -362,8 +364,8 @@
       const settle = delay => new Promise(resolve => { wake = resolve; if (leaving) resolve(); else setTimeout(resolve, delay); });
       await renderFrame(); count(observer.takeRecords());
       // Menus and dialogs often open after a short timer; wait a little longer only when nothing changed yet.
-      if (!leaving && !changes && location.href === url && targetState(el) === state) { await settle(200); count(observer.takeRecords()); }
-      const effect = leaving || location.href !== url ? "navigation" : !el.isConnected || targetState(el) !== state ? "target_state_changed" : changes ? "dom_changed" : "no_visible_change";
+      if (!leaving && !changes && sameUrl(location.href, url) && targetState(el) === state) { await settle(200); count(observer.takeRecords()); }
+      const effect = leaving || !sameUrl(location.href, url) ? "navigation" : !el.isConnected || targetState(el) !== state ? "target_state_changed" : changes ? "dom_changed" : "no_visible_change";
       return {...result, verified: effect !== "no_visible_change", effect, ...(effect === "no_visible_change" ? {hint: noChangeHint} : {})};
     } finally {
       observer.disconnect(); removeEventListener("pagehide", leave); removeEventListener("beforeunload", leave);
@@ -446,7 +448,8 @@
         elementCount: max > 0 ? selected.length : null, ...(max === 0 ? {elementsComplete: false} : {}), nextOffset: offset + max < selected.length ? offset + max : null,
         scroll: position(window), viewport: viewportInfo(), documentId: epoch};
     }
-    if (op === "locate") { const matches = find(args), cache = new WeakMap(); return {count: matches.length, elements: matches.slice(0, Math.min(500, Math.max(0, Number(args.maxElements ?? 100)))).map(el => describe(el, cache, args.selectors !== false, responseFields))}; }
+    // CSS selectors also match hidden copies (app shells keep many); semantic queries already skip them.
+    if (op === "locate") { const matches = semanticArgs(args) || args.ref || args.includeHidden ? find(args) : find(args).filter(el => visible(el)), cache = new WeakMap(); return {count: matches.length, elements: matches.slice(0, Math.min(500, Math.max(0, Number(args.maxElements ?? 100)))).map(el => describe(el, cache, args.selectors !== false, responseFields))}; }
     if (op === "scroll") {
       const mode = args.mode || "relative", behavior = args.behavior || "instant";
       if (!["relative", "absolute", "intoView"].includes(mode) || !["instant", "smooth", "auto"].includes(behavior)) fail("INVALID_ARGUMENT", "Unknown scroll mode or behavior");

@@ -36,6 +36,8 @@ def run_suite(operation, fixture_url, concurrent=None, progress=False):
         ignored=op('click',selector='#trusted-only');assert ignored['effect']=='no_visible_change' and ignored['verified'] is False and 'native companion' in ignored['hint']
         op('double_click',selector='#double');assert 'double clicked' in text('#double')
         op('hover',selector='#hover');assert text('#hover-status')=='hover:yes'
+        # CSS selector lookups skip hidden copies unless asked.
+        assert op('locate',selector='#hidden')['count']==0 and op('locate',selector='#hidden',includeHidden=True)['count']==1
         for selector,code in [('#disabled','DISABLED'),('#hidden','NOT_VISIBLE'),('.duplicate','NOT_UNIQUE'),('#covered','COVERED')]: rejects('click',code,selector=selector)
         rejects('fill','READ_ONLY',selector='#readonly',value='x')
         rejects('fill','DISABLED',selector='#disabled-input',value='x')

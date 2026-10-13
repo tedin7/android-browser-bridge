@@ -13,7 +13,7 @@ PROTECTED = frozenset({
     "actionMayHaveOccurred", "retryableAfterRecovery", "localAndroid", "navigation",
     "verified", "verifiedVisible", "androidOSForegroundGuaranteed", "tabActivated",
     "windowFocusSupported", "windowFocusRequested", "windowFocused", "windowFocusError",
-    "requested", "actual", "matched", "attempts", "desktopOnly", "affectsWindowTabs", "windowId", "mimeType", "imageIndex", "ok", "trustedEvents", "effect", "hint", "container", "urlQueryOmitted", "urlTruncated", "ref", "nameTruncated", "hrefTruncated",
+    "requested", "actual", "matched", "attempts", "desktopOnly", "affectsWindowTabs", "windowId", "mimeType", "imageIndex", "ok", "trustedEvents", "effect", "hint", "container", "duplicatesOmitted", "urlQueryOmitted", "urlTruncated", "ref", "nameTruncated", "hrefTruncated",
 })
 RESULT_FIELDS = PROTECTED | frozenset({
     "text", "title", "elements", "ref", "tag", "role", "accessibleName", "name", "type", "href",
@@ -89,6 +89,37 @@ def _compact_element(element, arguments):
     return result
 
 
+def native_elements(elements):
+    """Firefox exposes every container as a button whose name concatenates its children and
+    repeats nodes with identical bounds. Keep one per (role, name, bounds) and drop large
+    containers with merged names: they cost tokens and make name lookups ambiguous."""
+    def area(element):
+        rect = element.get("rect") or {}
+        return max(0, rect.get("width", 0)) * max(0, rect.get("height", 0))
+    largest = max((area(e) for e in elements if isinstance(e, dict)), default=0)
+    kept, seen, omitted = [], set(), 0
+    for element in elements:
+        if not isinstance(element, dict):
+            kept.append(element); continue
+        rect = element.get("rect") or {}
+        key = (element.get("role"), element.get("accessibleName"), tuple(rect.get(k) for k in ("x", "y", "width", "height")))
+        name = element.get("accessibleName") or ""
+        container = len(name) > 40 and largest and area(element) >= 0.25 * largest
+        if key in seen or container:
+            omitted += 1; continue
+        seen.add(key); kept.append(element)
+    # Same role and name nested inside each other: keep the innermost node.
+    def inside(inner, outer):
+        a, b = inner.get("rect") or {}, outer.get("rect") or {}
+        return all(k in a and k in b for k in ("x", "y", "width", "height")) and a["x"] >= b["x"] and a["y"] >= b["y"] and \
+            a["x"] + a["width"] <= b["x"] + b["width"] and a["y"] + a["height"] <= b["y"] + b["height"]
+    nested = {id(outer) for outer in kept if isinstance(outer, dict) for inner in kept
+              if isinstance(inner, dict) and inner is not outer and inner.get("role") == outer.get("role")
+              and inner.get("accessibleName") == outer.get("accessibleName") and inside(inner, outer) and area(inner) < area(outer)}
+    omitted += len(nested)
+    return [element for element in kept if id(element) not in nested], omitted
+
+
 def _select_fields(value, fields):
     required = PROTECTED | fields
     return {key: item for key, item in value.items() if key in required or (key in {"visible", "enabled"} and item is False) or (key == "readOnly" and item is True)}
@@ -132,18 +163,34 @@ def project_response(operation, result, mode, fields=None, arguments=None):
         return _select_fields(projected, fields) if mode == "fields" else projected
     if mode == "fields" and isinstance(result, list):
         return [_select_fields(entry, fields) if isinstance(entry, dict) and not entry.get("error") and not entry.get("nextSteps") else entry for entry in result]
-    if not isinstance(result, dict) or result.get("error") or result.get("nextSteps"):
+    if not isinstance(result, dict) or result.get("error"):
+        return result
+    if result.get("nextSteps") and not (result.get("verified") is True and isinstance(result.get("verification"), dict)):
         return result
     projected = dict(result)
+    if isinstance(result.get("verification"), dict) and result.get("verified") is True:
+        # A verified native write needs no method notes or follow-up advice.
+        for key in ("verification", "nextSteps"):
+            projected.pop(key, None)
+        if result.get("resolvedAncestor") is False and result.get("ancestorDepth") == 0:
+            projected.pop("resolvedAncestor", None); projected.pop("ancestorDepth", None)
+    if operation == "wait" and isinstance(result.get("element"), dict):
+        projected["element"] = {key: result["element"][key] for key in ("ref", "tag", "role", "accessibleName") if key in result["element"]}
     if isinstance(result.get("viewport"), dict):
         # Width/height/visibility answer "is the page suspended?"; zoom internals cost every turn.
         projected["viewport"] = {key: result["viewport"][key] for key in ("width", "height", "visibility") if key in result["viewport"]}
     if operation in {"read", "locate"} and isinstance(result.get("elements"), list):
-        projected["elements"] = [_compact_element(element, arguments) for element in result["elements"]]
+        elements, omitted = result["elements"], 0
+        if result.get("backend") == "android-accessibility" or "package" in result:
+            elements, omitted = native_elements(elements)
+            if omitted:
+                projected["duplicatesOmitted"] = omitted
+        projected["elements"] = [{key: value for key, value in _compact_element(element, arguments).items() if value is not None}
+                                 if isinstance(element, dict) else element for element in elements]
         if operation == "locate":
             returned = len(projected["elements"])
             projected["returned"] = returned
-            projected["truncated"] = isinstance(result.get("count"), int) and result["count"] > returned
+            projected["truncated"] = isinstance(result.get("count"), int) and result["count"] > returned + omitted
     if mode == "fields":
         return _select_fields(projected, fields)
     return projected

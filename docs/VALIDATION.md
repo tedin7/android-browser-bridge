@@ -563,3 +563,25 @@ accessibility service's own input connection to the focused editor. On the table
 this started Search Console's URL inspection, which then accepted "Request
 indexing" (the inspection page uses an opaque id, so its URL cannot be built
 directly). versionCode 12, same publisher certificate (SHA-256 `9b8f2f07…a67b9c`).
+
+### Token and round-trip reductions from a real Search Console session (1.0.3)
+
+Measured while requesting indexing through Search Console on the tablet:
+
+- Companion `read`/`locate` (compact): Firefox exposes containers as buttons whose
+  names concatenate their children and repeats nested copies of the same control.
+  The MCP keeps the innermost node per role and name, drops merged containers and
+  null fields, and reports `duplicatesOmitted`. A real Search Console `read` went
+  from 12,010 to 4,539 bytes (50 → 34 elements).
+- Companion `click`/`fill` by name/role: the MCP locates, deduplicates and acts in one
+  call, retrying a stale reference (nothing ran) with a fresh lookup. Before, agents
+  needed locate + click and often hit `STALE_REFERENCE`.
+- Verified native writes drop the verification notes and follow-up advice (about
+  600 → 150 characters); `wait` returns only ref, tag, role and name.
+- Extension 1.0.3: an app rewriting its own URL encoding (`%3A` → `:`) is no longer
+  reported as `navigation`; `locate` with a CSS selector skips hidden copies unless
+  `includeHidden` (Search Console keeps several hidden tables).
+
+All Node and Python suites, the real Firefox suite (new hidden-selector case) and
+web-ext lint passed. 1.0.3 is Mozilla-signed (`ee57848410b94cbe8c82-1.0.3.xpi`,
+SHA-256 `0547b858…`).

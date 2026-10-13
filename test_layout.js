@@ -9,7 +9,7 @@ const target = {id:'target',tagName:'DIV',nodeType:1,isConnected:true,isContentE
 const context = vm.createContext({browser:{runtime:{onMessage:{addListener:fn=>handler=fn,removeListener(){}}}},WeakRef,Map,WeakMap,Set,Math,Error,Number,String,Boolean,URL,HTMLSelectElement:class{},getComputedStyle:()=>style,
   document,location:{href:'https://fixture.invalid'},CSS:{escape:value=>value},innerWidth:320,innerHeight:600,window:{visualViewport:{width:320,height:600,offsetLeft:0,offsetTop:0}}});
 vm.runInContext(fs.readFileSync('extension/page.js','utf8'),context);
-const inspect = args => handler({type:'browser-bridge.command',engineVersion:'1.0.2',op:'inspect',args:{selector:'#target',...args}});
+const inspect = args => handler({type:'browser-bridge.command',engineVersion:'1.0.3',op:'inspect',args:{selector:'#target',...args}});
 (async()=>{
  hit=target;
  const ordinary=await inspect({});assert(!ordinary.error);assert.equal(ordinary.result.layout,undefined);assert.equal(hitCalls,0);
