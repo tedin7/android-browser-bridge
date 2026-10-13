@@ -73,9 +73,9 @@ class MCP:
 
 def main():
     parser=argparse.ArgumentParser()
-    parser.add_argument('--device',default='pad3-nightly')
+    parser.add_argument('--device',required=True,help='Paired device name, as listed by browser_devices')
     parser.add_argument('--url',default='http://127.0.0.1:8766')
-    parser.add_argument('--token-file',default='/root/.local/state/android-browser-bridge/token')
+    parser.add_argument('--token-file',default=os.path.expanduser('~/.local/state/android-browser-bridge/token'))
     parser.add_argument('--samples',type=int,default=12)
     parser.add_argument('--full-suite',action='store_true',help='Run all fixed browser interactions before profiling; requires extension 0.2.0')
     parser.add_argument('--output',default='state/android-baseline.json')

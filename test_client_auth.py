@@ -9,8 +9,8 @@ from client_auth import ClientCredentials
 class ClientCredentialTests(unittest.TestCase):
     def test_memory_creation_scope_revocation_and_validation(self):
         store = ClientCredentials(max_clients=1)
-        entry = store.register(["pad3-nightly", "pad3-nightly"])
-        self.assertEqual(store.authenticate(entry["token"]), {"clientId": entry["clientId"], "devices": ["pad3-nightly"]})
+        entry = store.register(["device-a", "device-a"])
+        self.assertEqual(store.authenticate(entry["token"]), {"clientId": entry["clientId"], "devices": ["device-a"]})
         self.assertIsNone(store.authenticate(entry["token"] + "x"))
         self.assertIsNone(store.authenticate("admin-token"))
         with self.assertRaises(ValueError):

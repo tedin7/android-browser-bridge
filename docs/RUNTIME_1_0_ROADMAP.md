@@ -113,7 +113,7 @@ Acceptance measures actual page work, bytes on each transport and client-reporte
 - [ ] Publish reproducible artifacts and signed companion APK; initial GitHub releases, marketplace publication only after real review/signing.
 - [ ] Direct LAN/HTTPS first; optional self-hosted relay where direct reachability is absent. NAT/CGNAT traversal requires an actual network path; do not imply transport independence solves reachability.
 - [x] Installer validates packages, backs up package/configuration changes and supports explicit package rollback. No destructive state migration is performed; rollback does not downgrade extension or journal schemas.
-- [ ] Final integration test on the currently installed Android extension and Codex/Claude clients on arvos-next; mark native installation and live runtime separately.
+- [ ] Final integration test on the currently installed Android extension and Codex/Claude clients on the remote agent host; mark native installation and live runtime separately.
 - [ ] Publish commits, artifacts, compatibility matrix and aggregate evidence only. Never publish credentials, personal pages, raw screenshots/logs or private journals.
 
 ## Completion policy

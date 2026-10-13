@@ -140,7 +140,7 @@ submission or signing has been performed by this validation run.
 
 ## Remote Codex automatic installation and intent routing (2026-10-12)
 
-A real Codex CLI session on the owned SSH host `arvos-next` cloned public main
+A real Codex CLI session on an owned remote SSH host cloned public main
 `8c8dcad` and ran `python3 install.py --codex`. Its prompt contained only the
 repository and installation instructions, with no broker URL, credential path
 or device ID. The installer migrated the existing authorized connection,
@@ -228,7 +228,7 @@ truncation markers make reduced outputs explicit.
 Node regressions cover normal dispatch/scheduling/navigation, multiple servers,
 settings consent/preservation, optional CSS layout and desktop viewport limits.
 
-## 0.3.1 desktop audit on SSH arvos-next
+## 0.3.1 desktop audit on a remote SSH host
 
 The new runner used Firefox ESR 153.4.0 and Browser Bridge MCP 0.3.1 on an
 owned fixture, without Playwright or screenshots. Requested 1280×720 and
@@ -304,7 +304,7 @@ was blocked by Android restricted settings at this point. Pairing is not a
 claim of active native control or a passed native-runtime test.
 
 
-### Live model connectivity smoke on arvos-next
+### Live model connectivity smoke on the remote agent host
 
 Two read-only model sessions called device discovery and capabilities against
 the real paired Firefox: Codex CLI 0.162.1 with gpt-6.1-sol, and Claude Code
@@ -349,7 +349,7 @@ Native mutation success is therefore not claimed. Empty accessibility
 descriptions were found to hide nonempty node text; the source fix uses the
 first nonblank description, text or hint and preserves package restrictions.
 
-The final remote installation on `arvos-next` updated both Codex and Claude
+The final remote installation on the agent host updated both Codex and Claude
 registrations. Fresh stdio sessions using each registration reported 1.0.0 and
 ten tools; separate private scoped profiles were retained. A single workflow
 validation from that server through the Codex scoped profile passed on the real

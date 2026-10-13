@@ -101,7 +101,7 @@ class BridgeTests(unittest.TestCase):
     def test_connection_policy(self):
         for origin in ("http://192.168.1.10:8766", "http://10.0.1.2:8766", "https://server.example:8766", "http://[::1]:8766"):
             self.assertEqual(validate_origin(origin), origin)
-        for origin in ("http://8.8.8.8:8766", "javascript:alert(1)", "https://user:pass@server.example", "https://server.example/path"):
+        for origin in ("http://203.0.113.8:8766", "javascript:alert(1)", "https://user:pass@server.example", "https://server.example/path"):
             with self.assertRaises(ValueError):
                 validate_origin(origin)
 

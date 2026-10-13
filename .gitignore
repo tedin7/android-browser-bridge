@@ -12,3 +12,6 @@ companion/local.properties
 *.apk
 *.jks
 *.keystore
+
+# Local list of private names checked by test_public_hygiene.py
+.private-names

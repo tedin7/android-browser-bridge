@@ -114,7 +114,7 @@ Il flusso è:
 4. Apri **Aggiungi un collegamento**, incolla `BB1.…`, scegli un nome e autorizza il controllo.
 5. Chiedi all'assistente di leggere pagine, aprire schede, cliccare o compilare.
 
-[Più terminali e macchine](docs/MULTICLIENT.md) · [Guida Firefox](docs/FIREFOX.md) · [Reti LAN/Internet e HTTPS](docs/NETWORKING.md) · [Privacy](PRIVACY.md)
+[Più terminali e macchine](docs/MULTICLIENT.md) · [Guida Firefox](docs/FIREFOX.md) · [Reti LAN/Internet e HTTPS](docs/NETWORKING.md) · [Sempre attivo (tunnel e riavvii)](docs/ALWAYS_ON.md) · [Privacy](PRIVACY.md)
 
 **Installazione da terminale:** [Claude Code](docs/CLAUDE_CODE.md) · [Codex CLI](docs/CODEX.md)
 

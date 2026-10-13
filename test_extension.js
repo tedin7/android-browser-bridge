@@ -29,7 +29,7 @@ vm.runInContext(fs.readFileSync("extension/background.js","utf8").replace(/loop\
   assert.equal((await context.execute({op:"frames"}))[0].frameId,0);
   assert.equal((await context.execute({op:"capabilities"})).trustedEvents,false);
   assert.equal(context.validateBridgeOrigin("http://192.168.1.10:8766"),"http://192.168.1.10:8766");
-  assert.throws(()=>context.validateBridgeOrigin("http://8.8.8.8"),/HTTPS/);
+  assert.throws(()=>context.validateBridgeOrigin("http://203.0.113.8"),/HTTPS/);
   let attempted=[];
   context.fetch=async url=>{attempted.push(url);if(url.includes("192.168"))throw Error("offline LAN");return {ok:true,json:async()=>({command:null})};};
   const response=await context.request({url:"http://192.168.1.10:8766",urls:["http://192.168.1.10:8766","https://linux.example:8766"],token:"test",generation:0},"/api/poll",{});

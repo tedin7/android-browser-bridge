@@ -1,0 +1,4 @@
+#!/bin/sh
+# The repository is public: refuse commits that add infrastructure details or secrets.
+# Enable once per clone: git config core.hooksPath .githooks
+exec python3 -I "$(git rev-parse --show-toplevel)/test_public_hygiene.py" -q

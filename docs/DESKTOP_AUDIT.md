@@ -43,6 +43,6 @@ Su un browser desktop condiviso il resize riguarda tutta la finestra, non una
 singola scheda: per gli audit usa il profilo isolato del comando sopra.
 
 Firefox può imporre una larghezza minima alla finestra desktop. Nella prova
-su arvos-next 1280×720 e 500×844 corrispondevano alle dimensioni misurate;
+su un host SSH remoto 1280×720 e 500×844 corrispondevano alle dimensioni misurate;
 una richiesta 390×844 misurava 500×844 con matched:false. Non presentare
 quel risultato come un test a 390 pixel o come una prova di Android.
