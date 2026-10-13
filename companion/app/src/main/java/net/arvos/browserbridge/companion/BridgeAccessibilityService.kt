@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 class BridgeAccessibilityService : AccessibilityService() {
     companion object {
-        const val VERSION = "0.2.2-experimental"
+        const val VERSION = "0.2.3-experimental"
         /** True while Android has this service bound in this process; the most direct evidence it is enabled. */
         val connected = AtomicBoolean(false)
     }
@@ -447,6 +447,7 @@ class BridgeAccessibilityService : AccessibilityService() {
             if (executed && before != null) pendingVerification = PendingVerification(operation, current, root.windowId, null, before, null)
             return JSONObject().put("executed", executed).put("package", current).put("verified", false)
         }
+        if (operation == "press") return pressEnter(args, current, root)
         val queue = ArrayDeque<AccessibilityNodeInfo>(); queue.add(root)
         val nodes = mutableListOf<AccessibilityNodeInfo>()
         while (queue.isNotEmpty() && nodes.size < 1000) {
@@ -534,6 +535,49 @@ class BridgeAccessibilityService : AccessibilityService() {
         if (before != null) pendingVerification = PendingVerification(operation, current, root.windowId, node, before, if (operation == "fill") args.getString("value") else null)
         val result = JSONObject().put("executed", true).put("package", current).put("method", if (tapped != null) "screen_tap" else "accessibility_action")
             .put("resolvedAncestor", (resolution?.ancestorDepth ?: 0) > 0).put("ancestorDepth", resolution?.ancestorDepth ?: 0).put("verified", false)
+        tapped?.let { result.put("tapPoint", JSONObject().put("x", it.first).put("y", it.second)) }
+        return result
+    }
+    /**
+     * Enter for the field that has input focus in the allowed app. Pages that ignore synthetic
+     * key events (Search Console's URL box) accept the keyboard's own action: first the editor
+     * action Android 11+ exposes to accessibility, then (force:true, or when that action is
+     * unavailable) a real tap on the on-screen keyboard's action key.
+     */
+    private fun pressEnter(args: JSONObject, current: String, root: AccessibilityNodeInfo): JSONObject {
+        if (args.optString("key", "Enter") != "Enter") return denied("INVALID_ARGUMENT", "The native companion presses only key Enter")
+        if (focusedPackage() != current) return denied("CONTEXT_CHANGED", "Enter reaches the focused app only; $current is not focused. No action was performed")
+        val input = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+        if (input == null || input.packageName?.toString() != current || !input.isEditable || input.isPassword || !input.isVisibleToUser)
+            return denied("TARGET_NOT_FOUND", "No editable field has input focus in $current. Tap the field (or fill it) first")
+        val before = observe(current, root.windowId, input)
+        val imeActionId = if (Build.VERSION.SDK_INT >= 30) AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id else null
+        val supportsAction = imeActionId != null && input.actionList.any { it.id == imeActionId }
+        var method = "ime_enter_action"
+        var tapped: Pair<Int, Int>? = null
+        val problem = JSONObject()
+        val executed = if (supportsAction && !args.optBoolean("force", false)) input.performAction(imeActionId!!) else {
+            method = "keyboard_tap"
+            val keyboard = allWindows().firstOrNull { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
+            val key = keyboard?.root?.let { keyboardRoot ->
+                val queue = ArrayDeque(listOf(keyboardRoot)); var found: AccessibilityNodeInfo? = null; var seen = 0
+                while (queue.isNotEmpty() && found == null && ++seen < 2000) {
+                    val node = queue.removeFirst()
+                    if (node.isVisibleToUser && Policy.isEnterKey(label(node), node.viewIdResourceName)) found = node
+                    for (i in 0 until node.childCount) node.getChild(i)?.let(queue::addLast)
+                }
+                found
+            }
+            if (keyboard == null) problem.put("reason", "keyboard_not_visible")
+            else if (key == null) problem.put("reason", "enter_key_not_found")
+            else tapped = tap(key, keyboard, problem)
+            tapped != null
+        }
+        if (!executed) return denied("ACTION_NOT_EXECUTED", if (method == "keyboard_tap") "Tap the field so the on-screen keyboard opens, then press Enter again" else "Android did not perform the editor action; retry with force:true to tap the keyboard's Enter key").apply {
+            getJSONObject("error").put("method", method).put("keyboard", problem)
+        }
+        if (before != null) pendingVerification = PendingVerification("press", current, root.windowId, input, before, null)
+        val result = JSONObject().put("executed", true).put("package", current).put("method", method).put("verified", false)
         tapped?.let { result.put("tapPoint", JSONObject().put("x", it.first).put("y", it.second)) }
         return result
     }

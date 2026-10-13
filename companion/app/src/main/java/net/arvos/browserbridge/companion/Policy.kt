@@ -4,8 +4,8 @@ import java.net.URI
 
 /** Pure policy functions: no Android context and no implicit target authority. */
 object Policy {
-    val operations = setOf("capabilities", "read", "locate", "inspect", "click", "fill", "back", "scroll", "foreground")
-    val writes = setOf("click", "fill", "scroll", "back")
+    val operations = setOf("capabilities", "read", "locate", "inspect", "click", "fill", "back", "scroll", "foreground", "press")
+    val writes = setOf("click", "fill", "scroll", "back", "press")
     private val packageName = Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+")
     fun validPackage(value: String): Boolean = value.length <= 255 && packageName.matches(value)
     fun packages(text: String): Set<String> {
@@ -38,6 +38,12 @@ object Policy {
     fun approvedContext(enabled: Boolean, sameConnection: Boolean, allowed: Set<String>,
                         target: String, visibleTarget: String, ownPackage: String, expiresAt: Long, now: Long): Boolean =
         sameConnection && expiresAt > now && visibleTarget == target && authorized(enabled, allowed, visibleTarget, ownPackage)
+    /** Labels and resource ids of a keyboard's action key (enter, search, go, done, send, next). */
+    private val enterWords = setOf("enter", "invio", "search", "cerca", "go", "vai", "done", "fine", "send", "invia", "next", "avanti", "return", "↵", "⏎")
+    fun isEnterKey(label: String, viewId: String?): Boolean {
+        val id = viewId?.substringAfter(":id/")?.lowercase() ?: ""
+        return label.trim().lowercase() in enterWords || id.contains("ime_action") || id == "key_enter" || id.endsWith("_enter")
+    }
     fun accessibleLabel(description: CharSequence?, text: CharSequence?, hint: CharSequence?): String =
         sequenceOf(description, text, hint).mapNotNull { it?.toString() }
             .firstOrNull { it.isNotBlank() }?.take(512) ?: ""

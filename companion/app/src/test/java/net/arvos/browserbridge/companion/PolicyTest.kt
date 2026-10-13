@@ -101,6 +101,14 @@ class PolicyTest {
         // An unreadable window still blocks.
         assertTrue(Policy.blocks(point, null))
     }
+    @Test fun recognisesKeyboardEnterKeysOnly() {
+        assertTrue(Policy.isEnterKey("Enter", null))
+        assertTrue(Policy.isEnterKey("Cerca", null))
+        assertTrue(Policy.isEnterKey("", "com.google.android.inputmethod.latin:id/key_pos_ime_action"))
+        assertFalse(Policy.isEnterKey("e", "com.google.android.inputmethod.latin:id/key_pos_0_4"))
+        assertFalse(Policy.isEnterKey("Spazio", null))
+        assertFalse(Policy.isEnterKey("Search settings", null))
+    }
     @Test fun verificationReportsObservableEvidenceOnly() {
         val before = Policy.Observation("w1", "t1", "false:false", "old")
         assertEquals(Policy.Verdict(true, "value_matches"), Policy.verify("fill", before, before.copy(targetText = "new"), "new"))
@@ -112,7 +120,7 @@ class PolicyTest {
         assertEquals(Policy.Verdict(false, "observation_unavailable"), Policy.verify("click", before, null, null))
     }
     @Test fun foregroundIsTheOnlyNewOperation() {
-        assertEquals(setOf("capabilities", "read", "locate", "inspect", "click", "fill", "back", "scroll", "foreground"), Policy.operations)
+        assertEquals(setOf("capabilities", "read", "locate", "inspect", "click", "fill", "back", "scroll", "foreground", "press"), Policy.operations)
         assertFalse("foreground" in Policy.writes)
         assertTrue(Policy.validPackage("org.mozilla.fenix"))
         assertFalse(Policy.validPackage("org.mozilla.fenix;rm"))

@@ -19,8 +19,8 @@ from pathlib import Path
 from operation_registry import OPERATIONS, PRODUCT_VERSION, validate_arguments
 
 # The Android companion has its own fixed contract; the Firefox catalog stays unchanged.
-NATIVE_OPERATIONS = frozenset({'capabilities', 'read', 'locate', 'inspect', 'click', 'fill', 'back', 'scroll', 'foreground'})
-NATIVE_ARGUMENTS = {'package': str, 'ref': str, 'name': str, 'label': str, 'role': str, 'textQuery': str, 'exact': bool,
+NATIVE_OPERATIONS = frozenset({'capabilities', 'read', 'locate', 'inspect', 'click', 'fill', 'back', 'scroll', 'foreground', 'press'})
+NATIVE_ARGUMENTS = {'package': str, 'key': str, 'ref': str, 'name': str, 'label': str, 'role': str, 'textQuery': str, 'exact': bool,
     'value': str, 'force': bool, 'y': (int, float), 'textLimit': int, 'maxElements': int, 'selectors': bool, 'responseFields': list}
 NATIVE_PACKAGE = re.compile(r'[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+')
 

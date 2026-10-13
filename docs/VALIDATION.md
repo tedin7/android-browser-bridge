@@ -541,3 +541,14 @@ click (extension 1.0.2 on the device). The MCP rules now say to retry such a con
 through the companion with `args.force:true`. Unit tests (25) and lint passed; the
 APK is signed with the existing publisher certificate (versionCode 9, SHA-256
 `31550cb6…cf414b`).
+
+### Companion 0.2.3: Enter for fields that ignore synthetic keys
+
+Search Console's URL inspection box starts only on a real Enter; the extension's
+synthetic key submits the surrounding form, which reloads the overview instead.
+The companion gains `press` (key Enter only) for the field that has input focus in
+an allowed, focused app: first the Android 11+ editor action `ACTION_IME_ENTER`,
+then, with `force:true` or when the field lacks that action, a real tap on the
+on-screen keyboard's action key (matched by label or `ime_action` resource id).
+The broker accepts `press` and `key` for companion devices. Unit tests (26) and lint
+passed; versionCode 10, same publisher certificate (SHA-256 `19e19207…49625`).
