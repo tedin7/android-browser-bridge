@@ -8,7 +8,7 @@ import zipapp
 root = Path(__file__).resolve().parent
 with ZipFile(root / "android-browser-bridge.xpi", "w", ZIP_DEFLATED) as archive:
     for file in sorted((root / "extension").iterdir()):
-        if file.is_file():
+        if file.is_file() and file.name != ".amo-upload-uuid":
             archive.write(file, file.name)
 print(root / "android-browser-bridge.xpi")
 with tempfile.TemporaryDirectory() as directory:
@@ -35,7 +35,7 @@ with ZipFile(root / "android-browser-bridge-bundle.zip", "w", ZIP_DEFLATED) as a
         archive.write(root / name, name)
     for directory in ("extension", "docs", "agent-skills", "apps"):
         for file in sorted((root / directory).rglob("*")):
-            if file.is_file():
+            if file.is_file() and file.name != ".amo-upload-uuid":
                 archive.write(file, file.relative_to(root))
     for file in sorted((root / "companion").rglob("*")):
         if file.is_file() and not any(part in {'build','.gradle'} for part in file.relative_to(root/'companion').parts) and file.name != 'local.properties' and file.suffix not in {'.apk','.jks','.keystore'}:
