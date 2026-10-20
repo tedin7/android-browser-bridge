@@ -18,7 +18,7 @@ PROTECTED = frozenset({
 RESULT_FIELDS = PROTECTED | frozenset({
     "text", "title", "elements", "ref", "tag", "role", "accessibleName", "name", "type", "href",
     "checked", "enabled", "visible", "rect", "selector", "value", "readOnly", "focused", "options",
-    "values", "length", "x", "y", "from", "to", "steps", "active", "version", "operations",
+    "values", "length", "durationMs", "key", "location", "x", "y", "from", "to", "steps", "active", "version", "operations",
     "transport", "frames", "screenshot", "openShadowRoots", "closedShadowRoots", "nativeAndroidUI",
     "foregroundAPI", "parallelTabs", "maxParallelCommands", "layout", "desktopViewport",
 })

@@ -1,3 +1,11 @@
+## 1.0.4 — Timed page input and canvas keyboard support
+
+- press includes inferred/explicit physical code and location; page input mode avoids editing/focus defaults for canvas controls. Printable canvas input no longer attempts text insertion after keydown.
+- press and drag accept bounded durationMs with event release on document interruption; drag moves are paced across the duration.
+- SVG activation falls back to a coordinate-bearing click event while HTML elements retain native click defaults.
+- no_visible_change reports missing DOM evidence rather than asserting that a canvas ignored input.
+- New contracts, regression tests and real Firefox fixture checks; see docs/GAME_INPUT.md.
+
 # 1.0 runtime candidate — not promoted
 
 This checkout adds bounded active queues independent of retained history,
