@@ -20,6 +20,7 @@ from browser_navigation import execute_navigation, NAVIGATION_OPERATIONS
 from response_policy import response_options, prepare_arguments, project_response, image_content, serialize_result, RESULT_FIELDS, native_elements
 from command_order import CommandOrder
 from observation_cache import ObservationCache
+from secret_file import resolve_value_file, scrub
 OBSERVATIONS=ObservationCache()
 COMMAND_ORDER = CommandOrder()
 LOCAL_BROKER = None
@@ -49,6 +50,7 @@ TOOLS = [
              "args": {"type": "object", "properties": {
                  "tabId": {"type": "integer"}, "frameId":{"type":"integer","minimum":0}, "url": {"type": "string"},
                  "selector": {"type": "string"}, "ref":{"type":"string"}, "value": {"type": "string"},
+                 "valueFile": {"type": "string", "description": "fill/type only: name of a 0600 file in the server secret directory; its content is typed without being shown to you. Do not combine with value."},
                  "values":{"type":"array","items":{"type":"string"}}, "checked":{"type":"boolean"},
                  "key":{"type":"string","description":"Examples: Enter, Tab, Control+A, Backspace"},
                  "force":{"type":"boolean"}, "active":{"type":"boolean"}, "layout":{"type":"boolean","description":"Include computed styles and geometry with inspect; requires extension 0.3.1."},
@@ -298,11 +300,12 @@ def handle(message):
                 args = normalize_command_arguments(args)
                 mode, fields = response_options(args)
                 values = prepare_arguments(args['op'], args.get('args', {}), mode)
-                if native_by_name(args['op'], values):
-                    result = resolve_native_target(url, token, args['device'], args['op'], values)
+                run_values, read_secrets = resolve_value_file(args['op'], values)
+                if native_by_name(args['op'], run_values):
+                    result = resolve_native_target(url, token, args['device'], args['op'], run_values)
                 else:
-                    result = execute_browser_command(url, token, args['device'], args['op'], values)
-                return serialize_result(args['op'], result, mode, fields, values)
+                    result = execute_browser_command(url, token, args['device'], args['op'], run_values)
+                return serialize_result(args['op'], scrub(result, read_secrets), mode, fields, values)
             else:
                 raise ValueError("Unknown tool")
 
