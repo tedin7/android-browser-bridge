@@ -148,7 +148,9 @@ class InstallerTests(unittest.TestCase):
                 target=home/'.local/share/android-browser-bridge';target.mkdir(parents=True)
                 existing={'setting':'preserve-top-level','mcpServers':{'other':{'command':'other','env':{'OTHER_PRIVATE':'dummy-unrelated-secret'}}}}
                 config_path=target/'mcp-config.json';config_path.write_text(json.dumps(existing));config_path.chmod(0o600)
-                old={'name':'android-browser','transport':{'type':'stdio','command':'python3','args':[str(ROOT/'mcp_server.py')],'env':{'BROWSER_BRIDGE_URL':origin,'BROWSER_BRIDGE_TOKEN_FILE':str(token_path),'BROWSER_BRIDGE_ANDROID_DEVICE':'fixture','BROWSER_BRIDGE_ANDROID_PACKAGE':'org.mozilla.fenix'}}}
+                legacy=home/'android-browser-bridge';(legacy/'extension').mkdir(parents=True)
+                (legacy/'mcp_server.py').write_text('');(legacy/'bridge.py').write_text('');(legacy/'extension/manifest.json').write_text(json.dumps({'browser_specific_settings':{'gecko':{'id':'android-browser-bridge@local.invalid'}}}))
+                old={'name':'android-browser','transport':{'type':'stdio','command':'python3','args':[str(legacy/'mcp_server.py')],'env':{'BROWSER_BRIDGE_URL':origin,'BROWSER_BRIDGE_TOKEN_FILE':str(token_path),'BROWSER_BRIDGE_ANDROID_DEVICE':'fixture','BROWSER_BRIDGE_ANDROID_PACKAGE':'org.mozilla.fenix'}}}
                 if index:
                     old['transport']['env'].pop('BROWSER_BRIDGE_TOKEN_FILE')
                     old['transport']['env']['BROWSER_BRIDGE_TOKEN']='dummy-legacy-admin-token'
