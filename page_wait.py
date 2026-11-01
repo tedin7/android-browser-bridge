@@ -14,7 +14,7 @@ SETTLE_LIMIT = 6.0
 SETTLE_INTERVAL = 0.4
 SETTLE_REPEATS = 2
 READ_ELEMENTS = 400
-MAX_READ_FAILURES = 3
+MAX_READ_FAILURES = 8
 HIDDEN_MARKERS = ('NOT_VISIBLE', 'does not intersect the rendered viewport')
 MENU_WORDS = re.compile(r'main menu|navigation panel|toggle (the )?menu|open menu|show menu|menu principale|navigation|hamburger|\bmenu\b', re.I)
 

@@ -52,7 +52,7 @@ class SettleTest(unittest.TestCase):
         evidence, clock = self.run_settle([RuntimeError('gone')])
         self.assertFalse(evidence['stable'])
         self.assertTrue(evidence['readFailed'])
-        self.assertLess(clock.now, 2)
+        self.assertLess(clock.now, 4)
 
     def test_one_failed_read_during_a_document_swap_is_tolerated(self):
         evidence, _ = self.run_settle([self.page(4), RuntimeError('swap'), self.page(4), self.page(4), self.page(4)])
