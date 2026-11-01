@@ -585,3 +585,12 @@ Measured while requesting indexing through Search Console on the tablet:
 All Node and Python suites, the real Firefox suite (new hidden-selector case) and
 web-ext lint passed. 1.0.3 is Mozilla-signed (`ee57848410b94cbe8c82-1.0.3.xpi`,
 SHA-256 `0547b858…`).
+
+
+## 1.0.4: fixed keyboard codes, timed input and SVG activation
+
+The game-input fixture verifies Space/KeyW and explicit ShiftRight location through the packaged MCP, real Firefox and the resident extension. A 100ms key hold and 120ms drag are checked against event timestamps recorded by the page. SVG group activation completes without calling a nonexistent .click() method. The complete existing Firefox interaction/task suite passed after the change, preserving form editing, native HTML control defaults, navigation and recovery. This is desktop Firefox evidence, not Android runtime evidence.
+
+All 187 Python tests passed with the Linux interpreter (one existing skip); all 13 Node test suites and web-ext lint passed (zero errors/notices/warnings). The targeted Node input test additionally checks release after visibility/pagehide cancellation and rejects out-of-range durations before keydown. A test fixture formerly hardcoded engine version1.0.3 now obtains the loaded version, retaining the version handshake rather than rejecting every later release.
+
+Synthetic input remains untrusted. There is no claim of native Android keyboard expansion, autonomous canvas targeting, simultaneous multi-key steering or guaranteed release after browser process death. See GAME_INPUT.md for supported arguments and limits. Signing, installed extension version and remote agent activation must be verified independently from these tests.

@@ -307,3 +307,6 @@ Gli screenshot e i clic visuali richiedono un viewport renderizzato; `read.viewp
 mostra dimensioni e visibilità per aiutare l’agente a decidere il prossimo passo.
 
 Latest development release: [0.3.1](https://github.com/tedin7/android-browser-bridge/releases/tag/v0.3.1-dev). See [validation](docs/VALIDATION.md) for the scope of real-device and regression tests.
+
+
+Timed keyboard/pointer input for canvas interfaces (1.0.4): see [fixed page input](docs/GAME_INPUT.md). Synthetic input remains untrusted; native Android limitations are unchanged.

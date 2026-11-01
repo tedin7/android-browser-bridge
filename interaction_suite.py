@@ -1,6 +1,7 @@
 """Portable browser interaction checks; uses only our local, disposable fixture."""
 
 import time
+import json
 
 def run_suite(operation, fixture_url, concurrent=None, progress=False):
     pages=[]
@@ -66,6 +67,17 @@ def run_suite(operation, fixture_url, concurrent=None, progress=False):
         rejects('click_point','INVALID_ARGUMENT',x=-1,y=0)
         op('click_point',x=x,y=y);assert text('#point-status')==f'point:{x},{y}'
         op('drag',x=x,y=y,toX=x+80,toY=y+30,dragSteps=8);assert text('#drag-status')==f'drag:{x+80},{y+30}'
+        report('game input: physical codes, timed hold and SVG activation')
+        op('press',selector='#point-target',key='Space',inputMode='page',durationMs=100)
+        key=json.loads(text('#game-input-status'));assert key['key']==' ' and key['code']=='Space' and key['elapsed']>=80,key
+        op('press',selector='#point-target',key='w',code='KeyW',inputMode='page')
+        assert json.loads(text('#game-input-status'))['code']=='KeyW'
+        op('press',selector='#point-target',key='Shift',code='ShiftRight',inputMode='page')
+        assert json.loads(text('#game-input-status'))['location']==2
+        rect=inspect('#point-target')['rect'];x=round(rect['x']+20);y=round(rect['y']+20)
+        op('drag',x=x,y=y,toX=x+40,toY=y+10,dragSteps=4,durationMs=120)
+        assert json.loads(text('#game-input-status'))['pointerElapsed']>=100
+        op('click',selector='#svg-action');assert text('#svg-status')=='svg:1'
         report('nested and document scrolling')
         nested=op('scroll',selector='#nested',x=100,y=200);assert nested['after']['x']==100 and nested['after']['y']==200
         op('scroll',selector='#nested',mode='absolute',x=0,y=0)

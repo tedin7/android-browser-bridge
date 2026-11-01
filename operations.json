@@ -1,6 +1,6 @@
 {
   "registryVersion": 1,
-  "productVersion": "1.0.3",
+  "productVersion": "1.0.4",
   "operations": {
     "activate": {
       "engine": "background",
@@ -1288,6 +1288,12 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 256
+          },
+          "durationMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5000,
+            "description": "Synthetic input duration, 0\u20135000 ms. Released on completion or document hiding; does not make events trusted."
           }
         },
         "additionalProperties": false,
@@ -1343,6 +1349,11 @@
           },
           "trustedEvents": {
             "type": "boolean"
+          },
+          "durationMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5000
           }
         },
         "required": [
@@ -2607,6 +2618,30 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 256
+          },
+          "durationMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5000,
+            "description": "Synthetic input duration, 0\u20135000 ms. Released on completion or document hiding; does not make events trusted."
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9]{0,63}$",
+            "description": "Physical KeyboardEvent.code, e.g. KeyW, Space, ShiftLeft. Common codes are inferred if omitted."
+          },
+          "location": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3
+          },
+          "inputMode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "page"
+            ],
+            "description": "page dispatches key events without emulating editing, focus traversal or control activation; useful for canvas controls. auto preserves editing defaults."
           }
         },
         "additionalProperties": false,
@@ -2680,6 +2715,25 @@
           },
           "hint": {
             "type": "string"
+          },
+          "durationMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5000
+          },
+          "key": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "location": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3
+          },
+          "trustedEvents": {
+            "type": "boolean"
           }
         },
         "required": [

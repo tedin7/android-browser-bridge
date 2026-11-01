@@ -1,8 +1,8 @@
 /* Resident fixed-operation engine. No remotely supplied scripts or expressions. */
 (() => {
-  if (globalThis.__browserBridgePageVersion === "1.0.3") return;
+  if (globalThis.__browserBridgePageVersion === "1.0.4") return;
   if (globalThis.__browserBridgePageListener) browser.runtime.onMessage.removeListener(globalThis.__browserBridgePageListener);
-  const engineVersion = "1.0.3";
+  const engineVersion = "1.0.4";
   globalThis.__browserBridgePageVersion = engineVersion;
   const epoch = Math.random().toString(36).slice(2, 10);
   let nextRef = 0;
@@ -264,7 +264,8 @@
     el.dispatchEvent(new PointerEvent("pointerup", {...point, pointerType: "mouse", pointerId: 1}));
     el.dispatchEvent(new MouseEvent("mouseup", {...point, detail}));
     // HTMLElement.click applies native checkbox/radio defaults; event dispatch alone does not.
-    el.click();
+    if (typeof el.click === "function") el.click();
+    else el.dispatchEvent(new MouseEvent("click", {...point, detail}));
     return point;
   }
   function viewportPoint(x, y) {
@@ -288,6 +289,36 @@
   function dispatchPointer(el, name, point, buttons = 0) {
     return el.dispatchEvent(new PointerEvent(name, {...point, pointerType: "mouse", pointerId: 1, isPrimary: true, buttons, button: 0}));
   }
+  function inputDuration(args) {
+    const duration = args.durationMs ?? 0;
+    if (!Number.isInteger(duration) || duration < 0 || duration > 5000) fail("INVALID_ARGUMENT", "durationMs must be an integer from 0 to 5000");
+    return duration;
+  }
+  function inputLifetime() {
+    let canceled = false, wake = null;
+    const cancel = () => { canceled = true; wake?.(); };
+    const visibility = () => { if (document.visibilityState === "hidden") cancel(); };
+    addEventListener("pagehide", cancel);
+    document.addEventListener("visibilitychange", visibility);
+    const check = () => {
+      if (canceled || document.visibilityState === "hidden") {
+        const error = Error("Input interrupted because the document was hidden or left; release was dispatched. Observe before retrying.");
+        error.code = "INPUT_CANCELED"; error.actionMayHaveOccurred = true; throw error;
+      }
+    };
+    return {
+      async wait(ms) {
+        check();
+        if (ms > 0) await new Promise(resolve => {
+          let timer;
+          wake = () => { clearTimeout(timer); resolve(); };
+          timer = setTimeout(wake, ms);
+        });
+        wake = null; check();
+      },
+      close() { removeEventListener("pagehide", cancel); document.removeEventListener("visibilitychange", visibility); }
+    };
+  }
   async function coordinateAction(op, args) {
     const start = viewportPoint(args.x, args.y), hit = hitAt(start);
     if (!hit) fail("NOT_FOUND", "No page element at these coordinates");
@@ -297,12 +328,16 @@
     const target = hit;
     for (let parent = target; parent; parent = parent.parentElement || parent.getRootNode().host) if (!enabled(parent)) fail("DISABLED", "Element or its containing control is disabled");
     let end, steps;
+    const duration = op === "drag" ? inputDuration(args) : 0;
     if (op === "drag") {
       end = viewportPoint(args.toX, args.toY); steps = args.dragSteps ?? args.steps ?? 10;
       if (!Number.isInteger(steps) || steps < 1 || steps > 60) fail("INVALID_ARGUMENT", "Drag steps must be an integer from 1 to 60");
     }
     dispatchPointer(target, "pointermove", start);
     target.dispatchEvent(new MouseEvent("mousemove", start));
+    const lifetime = op === "drag" ? inputLifetime() : null;
+    let releasePoint = start;
+    try {
     const down = dispatchPointer(target, "pointerdown", start, 1);
     const mouseDown = target.dispatchEvent(new MouseEvent("mousedown", {...start, buttons: 1, detail: 1}));
     if (down && mouseDown) target.focus?.({preventScroll: true});
@@ -313,8 +348,11 @@
       target.dispatchEvent(new MouseEvent("click", {...start, detail: 1}));
       return {ok: true, ref: reference(target), x: start.clientX, y: start.clientY, trustedEvents: false};
     }
+    const started = performance.now();
     for (let i = 1; i <= steps; i++) {
+      await lifetime.wait(Math.max(0, started + duration * i / steps - performance.now()));
       const point = {...start, clientX: start.clientX + (end.clientX - start.clientX) * i / steps, clientY: start.clientY + (end.clientY - start.clientY) * i / steps};
+      releasePoint = point;
       dispatchPointer(target, "pointermove", point, 1);
       target.dispatchEvent(new MouseEvent("mousemove", {...point, buttons: 1}));
     }
@@ -331,13 +369,17 @@
       setText(target, String(value), "insertReplacementText");
       target.dispatchEvent(new Event("change", {bubbles: true}));
     }
-    dispatchPointer(target, "pointerup", end);
-    target.dispatchEvent(new MouseEvent("mouseup", {...end, detail: 1}));
-    return {ok: true, ref: reference(target), from: {x: start.clientX, y: start.clientY}, to: {x: end.clientX, y: end.clientY}, steps, trustedEvents: false};
+    return {ok: true, ref: reference(target), from: {x: start.clientX, y: start.clientY}, to: {x: end.clientX, y: end.clientY}, steps, durationMs: duration, trustedEvents: false};
+    } finally {
+      if (lifetime) {
+        try { dispatchPointer(target, "pointerup", releasePoint); }
+        finally { try { target.dispatchEvent(new MouseEvent("mouseup", {...releasePoint, detail: 1})); } finally { lifetime.close(); } }
+      }
+    }
   }
   // Observable evidence after synthetic input; never a claim about application semantics.
   const stateAttributes = ["aria-expanded", "aria-checked", "aria-selected", "aria-pressed", "aria-activedescendant", "open"];
-  const noChangeHint = "No observable change: this widget may ignore synthetic events. Do not repeat the same action; read to confirm, then use a native companion device (args.package) for a real tap if one is available.";
+  const noChangeHint = "No observable DOM change; canvas or delayed application effects may still have occurred. Verify application state before repeating. If synthetic input was ignored, use a native companion device (args.package) for a real tap if available.";
   function targetState(el) {
     const parts = [];
     for (let node = el, depth = 0; node?.nodeType === 1 && depth < 4; node = node.parentElement, depth++)
@@ -503,8 +545,8 @@
       const text = op === "clear" ? "" : String(args.value ?? "");
       if (op === "type") {
         for (const key of text) {
-          if (el.dispatchEvent(new KeyboardEvent("keydown", {key, bubbles: true, cancelable: true}))) insertText(el, key);
-          el.dispatchEvent(new KeyboardEvent("keyup", {key, bubbles: true}));
+          if (el.dispatchEvent(new KeyboardEvent("keydown", {key, code: keyboardCode(key), bubbles: true, cancelable: true}))) insertText(el, key);
+          el.dispatchEvent(new KeyboardEvent("keyup", {key, code: keyboardCode(key), bubbles: true}));
         }
       } else setText(el, text, op === "clear" ? "deleteContentBackward" : "insertText");
       el.dispatchEvent(new Event("change", {bubbles: true}));
@@ -529,13 +571,33 @@
     if (op === "press") return observeEffect(el, () => pressKey(el, args));
     fail("UNSUPPORTED_OPERATION", "Unsupported page operation");
   }
-  function pressKey(el, args) {
+  function keyboardCode(key) {
+    if (/^[a-z]$/i.test(key)) return "Key" + key.toUpperCase();
+    if (/^[0-9]$/.test(key)) return "Digit" + key;
+    if (/^F([1-9]|1[0-9]|2[0-4])$/.test(key)) return key;
+    const codes = {" ": "Space", Shift: "ShiftLeft", Control: "ControlLeft", Alt: "AltLeft", Meta: "MetaLeft"};
+    return codes[key] || (["Enter", "Tab", "Escape", "Backspace", "Delete", "Home", "End", "PageUp", "PageDown", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Insert", "CapsLock"].includes(key) ? key : "");
+  }
+  async function pressKey(el, args) {
+    const duration = inputDuration(args);
     el.focus({preventScroll: true});
-    const keys = String(args.key || "").split("+"), key = keys.pop();
+    const keys = String(args.key || "").split("+");
+    let key = keys.pop();
     if (!key) fail("INVALID_ARGUMENT", "key required");
-    const modifiers = {ctrlKey: keys.includes("Control"), metaKey: keys.includes("Meta"), shiftKey: keys.includes("Shift"), altKey: keys.includes("Alt")};
-    const allowed = el.dispatchEvent(new KeyboardEvent("keydown", {key, ...modifiers, bubbles: true, cancelable: true}));
-    if (allowed) {
+    if (key === "Space") key = " ";
+    if (key === "Esc") key = "Escape";
+    if (args.inputMode !== undefined && !["auto", "page"].includes(args.inputMode)) fail("INVALID_ARGUMENT", "inputMode must be auto or page");
+    if (args.code !== undefined && (typeof args.code !== "string" || !/^[A-Za-z][A-Za-z0-9]{0,63}$/.test(args.code))) fail("INVALID_ARGUMENT", "Invalid keyboard code");
+    if (args.location !== undefined && (!Number.isInteger(args.location) || args.location < 0 || args.location > 3)) fail("INVALID_ARGUMENT", "Invalid keyboard location");
+    const code = args.code ?? keyboardCode(key);
+    const location = args.location ?? (/Right$/.test(code) ? 2 : /Left$/.test(code) ? 1 : /^Numpad/.test(code) ? 3 : 0);
+    const modifiers = {ctrlKey: keys.includes("Control") || key === "Control", metaKey: keys.includes("Meta") || key === "Meta", shiftKey: keys.includes("Shift") || key === "Shift", altKey: keys.includes("Alt") || key === "Alt"};
+    const init = {key, code, location, ...modifiers, bubbles: true, cancelable: true};
+    const editable = el.isContentEditable || el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && !["button", "submit", "reset", "checkbox", "radio", "file", "image", "range", "color"].includes(el.type));
+    const lifetime = inputLifetime();
+    try {
+    const allowed = el.dispatchEvent(new KeyboardEvent("keydown", init));
+    if (allowed && args.inputMode !== "page") {
       if ((modifiers.ctrlKey || modifiers.metaKey) && key.toLowerCase() === "a" && typeof el.select === "function") el.select();
       else if ((modifiers.ctrlKey || modifiers.metaKey) && key.toLowerCase() === "a" && el.isContentEditable) { const selection = window.getSelection(); selection.removeAllRanges(); const range = document.createRange(); range.selectNodeContents(el); selection.addRange(range); }
       else if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(key) && el.selectionStart !== null && typeof el.setSelectionRange === "function") {
@@ -546,7 +608,7 @@
       else if ((key === "Enter" || key === " " || key === "Space") && ["button", "checkbox", "radio", "link"].includes(roleOf(el))) el.click();
       else if (key === "Enter" && el instanceof HTMLInputElement && el.form) el.form.requestSubmit();
       else if (key === "Enter" && el instanceof HTMLTextAreaElement) insertText(el, "\n", "insertLineBreak");
-      else if (["Backspace", "Delete"].includes(key)) {
+      else if (editable && ["Backspace", "Delete"].includes(key)) {
         const value = editableText(el), start = el.selectionStart ?? value.length, end = el.selectionEnd ?? value.length;
         const from = start === end && key === "Backspace" ? Math.max(0, start - 1) : start;
         const to = start === end && key === "Delete" ? Math.min(value.length, end + 1) : end;
@@ -555,10 +617,11 @@
       } else if (key === "Tab") {
         const fields = [...document.querySelectorAll("a[href],button,input,textarea,select,[tabindex],[contenteditable=true]")].filter(element => visible(element) && enabled(element) && element.tabIndex >= 0);
         const next = fields[(fields.indexOf(el) + (modifiers.shiftKey ? -1 : 1) + fields.length) % fields.length]; next?.focus({preventScroll: true});
-      } else if (key.length === 1 && !modifiers.ctrlKey && !modifiers.metaKey && !modifiers.altKey) insertText(el, key);
+      } else if (editable && key.length === 1 && !modifiers.ctrlKey && !modifiers.metaKey && !modifiers.altKey) insertText(el, key);
     }
-    el.dispatchEvent(new KeyboardEvent("keyup", {key, ...modifiers, bubbles: true}));
-    return {ok: true, defaultPrevented: !allowed};
+    await lifetime.wait(duration);
+    return {ok: true, defaultPrevented: !allowed, key, code, location, durationMs: duration, trustedEvents: false};
+    } finally { try { el.dispatchEvent(new KeyboardEvent("keyup", {...init, ...(key === "Shift" ? {shiftKey: false} : key === "Control" ? {ctrlKey: false} : key === "Alt" ? {altKey: false} : key === "Meta" ? {metaKey: false} : {})})); } finally { lifetime.close(); } }
   }
   const listener = message => {
     if (message?.type !== "browser-bridge.command" || globalThis.__browserBridgePageVersion !== engineVersion) return undefined;
