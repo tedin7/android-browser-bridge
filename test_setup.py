@@ -133,6 +133,18 @@ class ConnectionTests(unittest.TestCase):
 
 
 class InstallerTests(unittest.TestCase):
+    def test_is_genuine_bridge_non_dipende_dal_nome_della_cartella(self):
+        # T-5772: un clone con altro nome e riconosciuto dal manifest, non dal nome
+        from install import is_genuine_bridge
+        with tempfile.TemporaryDirectory() as tmp:
+            for nome, gecko, atteso in (('clone-con-altro-nome', 'android-browser-bridge@local.invalid', True),
+                                        ('altro-progetto', 'altro@example.invalid', False)):
+                cartella = Path(tmp) / nome;(cartella / 'extension').mkdir(parents=True)
+                (cartella / 'mcp_server.py').write_text('');(cartella / 'bridge.py').write_text('')
+                (cartella / 'extension/manifest.json').write_text(json.dumps({'browser_specific_settings': {'gecko': {'id': gecko}}}))
+                record = {'transport': {'type': 'stdio', 'command': 'python3', 'args': [str(cartella / 'mcp_server.py')]}}
+                self.assertIs(is_genuine_bridge(record), atteso, nome)
+
     def test_codex_discovers_legacy_connection_preserves_configs_and_helper_env(self):
         import install
         from connection import load_connection

@@ -138,7 +138,7 @@ def is_genuine_bridge(record):
                         return True
             except (OSError, BadZipFile):
                 pass
-        if file.name == "mcp_server.py" and file.parent.name == "android-browser-bridge":
+        if file.name == "mcp_server.py":
             try:
                 manifest = json.loads((file.parent / "extension/manifest.json").read_text())
                 if manifest.get("browser_specific_settings", {}).get("gecko", {}).get("id") == "android-browser-bridge@local.invalid" and (file.parent / "bridge.py").is_file():
