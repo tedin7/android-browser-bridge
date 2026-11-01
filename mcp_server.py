@@ -21,6 +21,8 @@ from response_policy import response_options, prepare_arguments, project_respons
 from command_order import CommandOrder
 from observation_cache import ObservationCache
 from secret_file import resolve_value_file, scrub
+import page_wait
+import goal_step
 OBSERVATIONS=ObservationCache()
 COMMAND_ORDER = CommandOrder()
 LOCAL_BROKER = None
@@ -86,6 +88,8 @@ TOOLS.extend([
  {'name':'browser_observe','description':'Read one region and return a bounded snapshot or delta since snapshotId. Navigation or missing history yields a full observation.', 'inputSchema':{'type':'object','required':['device','tabId'],'additionalProperties':False,'properties':{'device':{'type':'string'},'tabId':{'type':'integer'},'args':{'type':'object'},'snapshotId':{'type':'string'}}}},
  {'name':'browser_step','description':'Execute a bounded fixed workflow on one tab under an extension-owned lease, then verify explicit conditions. No automatic action retries.',
   'inputSchema':{'type':'object','required':['device','plan'],'additionalProperties':False,'properties':{'device':{'type':'string'},'plan':{'type':'object'}}}},
+ {'name':'browser_goal','description':'Reach a goal on one tab by clicking (max 7 steps). Returns arrived or needs_decision with elements for you to choose. No fill or submit.',
+  'inputSchema':{'type':'object','required':['device','tabId','goal'],'additionalProperties':False,'properties':{'device':{'type':'string'},'tabId':{'type':'integer'},'goal':{'type':'string','maxLength':300},'maxSteps':{'type':'integer','maximum':7},'skipArrivalCheck':{'type':'boolean'}}}},
  {'name':'browser_contract','description':'Discover the precise input schema, effects and platform limits of one fixed operation.',
   'inputSchema':{'type':'object','required':['operation'],'additionalProperties':False,'properties':{'operation':{'type':'string','enum':sorted(OPERATIONS)}}}}
 ])
@@ -128,6 +132,8 @@ def execute_browser_command(url, token, device, operation, arguments):
     with COMMAND_ORDER.enter(device, operation, arguments):
         def dispatch(op, values):
             return run_command(url, token, device, op, values, request=broker_api)
+        def core(op, values):
+            return execute_navigation(dispatch, op, values)
         def execute(op, values):
             steps=values.get('steps', [])
             if op=='batch' and isinstance(steps,list) and any((step.get('op') in NAVIGATION_OPERATIONS and step.get('args',{}).get('waitUntil')=='complete') or (step.get('op')=='inspect' and step.get('args',{}).get('layout') is True) for step in steps):
@@ -142,7 +148,15 @@ def execute_browser_command(url, token, device, operation, arguments):
                     except Exception as error:
                         return {'results':results,'completed':len(results),'error':{'index':index,**failure(error,device,step.get('op'))}}
                 return {'results':results,'completed':len(results)}
-            result = execute_navigation(dispatch,op,values)
+            wait = auto_wait_applies(op, values)
+            recovery = None
+            if wait and op == 'click':
+                result, recovery = page_wait.click_with_recovery(core, dispatch, values)
+            else:
+                result = core(op, values)
+            if wait:
+                evidence = page_wait.settle(dispatch, values, need_ready=op in NAVIGATION_OPERATIONS or (recovery or {}).get('recovery') == 'followed_href')
+                result = page_wait.annotate(result, **({'pageSettle': evidence} if op != 'click' or recovery is None else {'pageSettle': evidence, 'autoRecovery': recovery}))
             if op == 'inspect' and values.get('layout') is True and (not isinstance(result, dict) or not isinstance(result.get('layout'), dict)):
                 raise RuntimeError('UNSUPPORTED_OPERATION: Computed layout details require extension 0.3.1; update Firefox Browser Bridge, or use basic inspect geometry without claiming a CSS audit.')
             return result
@@ -162,6 +176,28 @@ def execute_browser_command(url, token, device, operation, arguments):
                 step=arguments.get('steps',[])[index]
                 result['error']={**detail,**failure(RuntimeError(detail.get('code','ACTION_ERROR')+': '+detail.get('message','')),device,step.get('op'))}
         return result
+
+
+AUTO_WAIT_OPERATIONS = frozenset({'navigate', 'open', 'click'})
+
+
+def auto_wait_applies(op, values):
+    """Wait for the page to stop changing after navigate/open/click on browser tabs.
+
+    Skipped for native companion calls (package) and with BROWSER_BRIDGE_AUTO_WAIT=0.
+    """
+    return op in AUTO_WAIT_OPERATIONS and 'package' not in values and os.environ.get('BROWSER_BRIDGE_AUTO_WAIT') != '0'
+
+
+def run_goal_tool(url, token, args):
+    device = args['device']
+    if not isinstance(args.get('tabId'), int) or isinstance(args.get('tabId'), bool) or not isinstance(args.get('goal'), str) or not 1 <= len(args['goal']) <= 300:
+        raise ValueError('browser_goal needs an integer tabId and a goal of 1..300 characters')
+    def run(op, values):
+        return execute_browser_command(url, token, device, op, values)
+    def read(op, values):
+        return run_command(url, token, device, op, values, request=broker_api)
+    return goal_step.run_goal(run, read, args)
 
 
 NATIVE_QUERY_KEYS = ('name', 'role', 'label', 'textQuery', 'exact')
@@ -261,6 +297,8 @@ def handle(message):
                 operation=args.get('operation')
                 if operation not in REGISTRY['operations']:raise ValueError('Unknown operation')
                 result=REGISTRY['operations'][operation]
+            elif params['name']=='browser_goal':
+                result=run_goal_tool(url,token,args)
             elif params['name']=='browser_step':
                 result=run_step(url,token,args['device'],args['plan'])
             elif params['name']=='browser_status':
@@ -326,7 +364,7 @@ def request_lane(message):
     params = message.get('params', {})
     if not isinstance(params,dict) or not isinstance(params.get('name'),str) or not isinstance(params.get('arguments',{}),dict):
         return 'control' # The adapter responds to invalid envelopes; routing must never crash.
-    if params.get('name') in {'browser_command','browser_step','browser_observe'}:
+    if params.get('name') in {'browser_command','browser_step','browser_observe','browser_goal'}:
         return 'action'
     if params.get('name') == 'browser_status':
         value = params.get('arguments', {}).get('waitMs', 0)

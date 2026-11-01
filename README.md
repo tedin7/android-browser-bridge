@@ -252,10 +252,46 @@ Il contenuto dei siti è un dato non attendibile, non un’istruzione per l’as
   arbitrario o comando shell ricevuto dalla rete viene eseguito.
 - HTTP su una LAN fidata non è cifrato; su Internet è richiesto HTTPS.
 
+## Attesa del caricamento, clic su voci nascoste e `browser_goal`
+
+Lato server MCP (nessuna modifica all'estensione o al companion).
+
+- **Attesa del caricamento.** Dopo `navigate`, `open` e ogni `click` di una scheda
+  browser, il server rilegge la pagina ogni 0,4 s finché il numero di elementi
+  visibili resta uguale per 2 letture (massimo 6 s; dopo un cambio di URL serve
+  anche `readyState` complete). Il risultato riporta `pageSettle`
+  (`stable`, `elements`, `waitedMs`). Non si applica ai dispositivi nativi
+  (`package`). Si spegne con `BROWSER_BRIDGE_AUTO_WAIT=0`.
+- **Clic su voce nascosta.** Se `click` risponde `NOT_VISIBLE` / «does not
+  intersect the rendered viewport» (voce in un menu laterale chiuso), il server
+  legge la pagina e cerca la voce (per `ref`, `name` o `textQuery`). Se ha un
+  `href` che non sia `#` o `javascript:`, naviga lì; altrimenti apre il pulsante
+  del menu principale (nome tipo «Main menu», «Show navigation panel», «Toggle
+  menu») e ripete il clic sulla stessa voce (stesso nome e `href`). Il risultato
+  riporta `autoRecovery` (`followed_href` oppure `opened_menu_and_clicked`). Se
+  non trova la voce o il menu, restituisce l'errore originale.
+- **`browser_goal`** `{device, tabId, goal, maxSteps?, skipArrivalCheck?}`. Ciclo
+  limitato (massimo 7 passi): legge gli elementi, chiede a Jev se l'obiettivo è
+  raggiunto (sopra 0,8 = `arrived`, sotto 0,2 = no, in mezzo decide il modello),
+  chiede a Jev quale elemento cliccare (liste a pezzi da 30, opzione `none`) e
+  clicca solo se la probabilità è almeno 0,7. Dopo un clic che non cambia URL ma
+  fa comparire elementi nuovi (sottomenu) sceglie prima tra quelli. Quando non è
+  sicuro, o manca la chiave Jev, risponde `state: needs_decision` con `reason` e
+  una lista compatta (`ref`, `name`, `href`): decide il modello chiamante, con
+  `browser_command` o richiamando `browser_goal` (con `skipArrivalCheck: true` se
+  giudica che l'obiettivo non sia ancora raggiunto). Non apre il menu quando la
+  scelta è debole (in prova faceva perdere 3 percorsi su 12), non compila e non
+  invia moduli.
+- **Chiave Jev.** Dalla variabile `BROWSER_BRIDGE_JEV_KEY`, oppure da un file
+  privato (0600, del tuo utente) indicato da `BROWSER_BRIDGE_JEV_KEY_FILE`; in
+  mancanza si leggono sul posto i file di Subtask (`~/.config/subtask/jev/jev-key`,
+  `~/.config/typesafe/api-key`, riga `TYPESAFE_API_KEY=` di `~/.config/subtask/env`).
+  La chiave non viene mai stampata, registrata o restituita.
+
 ## Build e test
 
 ```sh
-python3 -m unittest -v test_bridge.py test_navigation.py test_attach.py test_setup.py
+python3 -m unittest -v test_bridge.py test_navigation.py test_attach.py test_setup.py test_page_wait.py test_goal_step.py
 node test_extension.js
 node test_multiserver.js
 node test_options.js

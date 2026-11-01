@@ -51,7 +51,7 @@ class BridgeTests(unittest.TestCase):
     def test_mcp_discovery(self):
         initialized = handle({"method": "initialize", "params": {"protocolVersion": "2025-03-26"}})
         self.assertEqual(initialized["protocolVersion"], "2025-03-26")
-        self.assertEqual(len(handle({"method": "tools/list"})["tools"]), 10)
+        self.assertEqual(len(handle({"method": "tools/list"})["tools"]), 11)
 
     def test_pair_once_and_revoke(self):
         code = self.broker.handle("/api/enroll", {"device": "tablet"})["code"]
@@ -159,7 +159,7 @@ class GuidanceTests(unittest.TestCase):
         self.assertEqual(timed['code'],'COMMAND_TIMEOUT');self.assertEqual(timed['commandId'],'command_7')
 
     def test_only_known_precondition_allows_bounded_foreground_recovery(self):
-        with patch.dict(os.environ,{'BROWSER_BRIDGE_TOKEN':'test'},clear=False), patch('mcp_server.local_android_foreground',return_value={'launchRequested':True}) as helper, patch('mcp_server.run_command',side_effect=[RuntimeError('VIEWPORT_UNAVAILABLE: suspended'),{'activated':True},{'ok':True}]) as command:
+        with patch.dict(os.environ,{'BROWSER_BRIDGE_TOKEN':'test','BROWSER_BRIDGE_AUTO_WAIT':'0'},clear=False), patch('mcp_server.local_android_foreground',return_value={'launchRequested':True}) as helper, patch('mcp_server.run_command',side_effect=[RuntimeError('VIEWPORT_UNAVAILABLE: suspended'),{'activated':True},{'ok':True}]) as command:
             result=self.call()
         self.assertFalse(result.get('isError'));self.assertEqual(command.call_count,3)
         self.assertEqual([call.args[3] for call in command.call_args_list],['click','foreground','click'])

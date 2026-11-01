@@ -1,3 +1,10 @@
+## Attesa del caricamento, clic su voci nascoste, `browser_goal` (T-6510)
+
+- `navigate`, `open` e `click` aspettano che il numero di elementi visibili sia stabile (2 letture a 0,4 s, massimo 6 s).
+- Un clic su una voce di un menu chiuso (`NOT_VISIBLE`) segue l'`href` della voce oppure apre il menu principale e ripete il clic; il risultato riporta `autoRecovery`.
+- Nuovo strumento `browser_goal`: Jev sceglie solo con probabilità almeno 0,7 e risponde all'«arrivato?» solo sopra 0,8 o sotto 0,2; il resto torna al modello. Senza chiave Jev restituisce la lista compatta.
+- Solo lato server MCP: estensione e companion non cambiano. La versione del prodotto resta 1.0.5.
+
 ## 1.0.4 — Timed page input and canvas keyboard support
 
 - press includes inferred/explicit physical code and location; page input mode avoids editing/focus defaults for canvas controls. Printable canvas input no longer attempts text insertion after keydown.
