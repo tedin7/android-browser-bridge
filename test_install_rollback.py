@@ -42,6 +42,21 @@ class PackageRollbackTests(unittest.TestCase):
             self.assertEqual(config.read_text(), 'unrelated-config')
             self.assertEqual(sorted(path.name for path in state.iterdir()), ['connection.json'])
 
+    def test_old_package_backups_are_pruned_to_the_last_five(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)/'root';root.mkdir()
+            destination = Path(temporary)/'install';destination.mkdir()
+            package(destination/install.PACKAGE_NAME,'current');package(root/install.PACKAGE_NAME,'new')
+            old = [destination/(install.PACKAGE_NAME+'.bak-202610%02dT120000Z-'%day+'b'*16) for day in range(1,11)]
+            for path in old:package(path,'old')
+            other = destination/'mcp-config.json.bak-20261001T120000-aaaaaaaa';other.write_text('x')
+            with patch('install.subprocess.run'):
+                install._install_package(root, destination)
+            left = sorted(destination.glob(install.PACKAGE_NAME+'.bak-*'))
+            self.assertEqual(len(left), 5)
+            self.assertFalse(old[0].exists());self.assertTrue(old[-1].exists())
+            self.assertTrue(other.exists())
+
     def test_invalid_new_package_cannot_replace_current(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)/'root';root.mkdir()

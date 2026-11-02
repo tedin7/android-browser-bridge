@@ -6,10 +6,26 @@ Navigation is sent once; subsequent calls are read-only snapshots.
 """
 
 import math
+import re
 import time
 
 
 NAVIGATION_OPERATIONS = frozenset({"open", "navigate", "back", "forward", "reload"})
+
+
+# Pagine di errore del browser (Address Not Found, certificato, connessione): la
+# pagina non e leggibile, ma navigare via da li verso un URL HTTP(S) e sicuro
+# perche la verifica finale richiede comunque uno snapshot HTTP(S) completo.
+_ERROR_PAGE_URL = ("about:neterror", "about:certerror", "about:blocked")
+_ERROR_PAGE_MESSAGE = re.compile(r"address not found|about:(net|cert)error|missing host permission", re.I)
+
+
+def _error_page_previous(op, args, error=None, snapshot=None):
+    if op != "navigate" or not str(args.get("url", "")).lower().startswith(("http://", "https://")):
+        return False
+    if error is not None:
+        return bool(_ERROR_PAGE_MESSAGE.search(str(error)))
+    return isinstance(snapshot, dict) and str(snapshot.get("url", "")).lower().startswith(_ERROR_PAGE_URL)
 
 
 class NavigationError(RuntimeError):
@@ -55,8 +71,13 @@ def execute_navigation(dispatch, op, args):
         except Exception as error:
             message = str(error)
             protected_previous = op == "navigate" and ("Only HTTP(S) page URLs allowed" in message or "Only HTTP page URLs allowed" in message)
+            if not protected_previous and _error_page_previous(op, args, error=error):
+                protected_previous = True
             if not protected_previous:
                 raise NavigationError("NAVIGATION_PRECONDITION", "The current page could not be read. Run foreground for this tab, open Firefox on Android, and verify read before navigating.") from error
+        if not protected_previous and _error_page_previous(op, args, snapshot=previous):
+            protected_previous = True
+            previous = None
         if not protected_previous and not _http_snapshot(previous):
             raise NavigationError("NAVIGATION_PRECONDITION", "A readable HTTP(S) page snapshot is required. Run foreground for this tab and verify read before navigating.")
 

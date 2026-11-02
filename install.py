@@ -480,6 +480,17 @@ def _backup_package(target):
     return backup
 
 
+PACKAGE_BACKUPS_KEPT = 5
+
+
+def _prune_package_backups(destination, keep=PACKAGE_BACKUPS_KEPT):
+    """Tiene solo le ultime `keep` copie .bak del pacchetto (nome con data UTC)."""
+    pattern = re.compile(re.escape(PACKAGE_NAME) + r"\.bak-[0-9]{8}T[0-9]{6}Z-[a-f0-9]{16}")
+    backups = sorted(path for path in destination.iterdir() if pattern.fullmatch(path.name) and path.is_file() and not path.is_symlink())
+    for old in backups[:max(0, len(backups) - keep)]:
+        old.unlink()
+
+
 def _install_package(root, destination):
     target = destination / PACKAGE_NAME
     with _package_lock(destination):
@@ -487,6 +498,7 @@ def _install_package(root, destination):
         data = _package_bytes(root / PACKAGE_NAME)
         _backup_package(target)
         _write_package(target, data, replace=True)
+        _prune_package_backups(destination)
     return target
 
 

@@ -4,4 +4,4 @@ Never add arbitrary remote JavaScript execution. Do not log tokens or page conte
 
 ## Test in una copia (worktree)
 
-I test usano `android-browser-mcp.pyz` (ignorato da git): prima `python3 build.py`. Tre test di installazione riconoscono il ponte solo se la cartella si chiama `android-browser-bridge`: in un worktree con altro nome falliscono per ambiente. Usa una cartella con quel nome.
+I test usano `android-browser-mcp.pyz` (ignorato da git): prima `python3 build.py`. Dal 192c5d0 i test di installazione riconoscono il ponte dal manifest, non dal nome della cartella: un worktree con qualsiasi nome va bene.

@@ -80,6 +80,22 @@ class NavigationTests(unittest.TestCase):
     def test_protected_previous_page_can_navigate_to_http(self):
         self.verify('navigate',[RuntimeError('Only HTTP(S) page URLs allowed'),snapshot()],{'url':'https://example.org/page'})
 
+    def test_error_page_can_navigate_to_http(self):
+        for before in [RuntimeError('Address Not Found'),RuntimeError('Missing host permission for the tab'),snapshot('about:neterror?e=dnsNotFound')]:
+            with self.subTest(before=str(before)):
+                self.verify('navigate',[before,snapshot()],{'url':'https://example.org/page'})
+
+    def test_error_page_does_not_allow_back_or_unknown_failures(self):
+        for op,before,args in [('back',RuntimeError('Address Not Found'),{}),('navigate',RuntimeError('page suspended'),{'url':'https://example.org/'}),('navigate',snapshot('about:neterror'),{})]:
+            calls=[]
+            def dispatch(o,a):
+                calls.append(o)
+                if isinstance(before,Exception):raise before
+                return before
+            with self.subTest(op=op),self.assertRaisesRegex(NavigationError,'NAVIGATION_PRECONDITION'):
+                execute_navigation(dispatch,op,{'tabId':7,'waitUntil':'complete',**args})
+            self.assertEqual(calls,['read'])
+
     def test_invalid_timeout_never_dispatches(self):
         for timeout in [True,float('nan'),'10']:
             dispatch=Mock()
