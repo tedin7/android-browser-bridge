@@ -1,6 +1,7 @@
 """Package upgrade/rollback never changes connection or agent configuration."""
 import contextlib
 import io
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -16,6 +17,20 @@ def package(path, version):
 
 
 class PackageRollbackTests(unittest.TestCase):
+    def test_unchanged_config_creates_no_backup_but_changes_are_preserved(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary)/'mcp-config.json'
+            original = {'mcpServers': {'fixture': {'command': 'old'}}}
+            install._write_config(path, original)
+            install._write_config(path, original)
+            self.assertEqual(list(path.parent.glob('mcp-config.json.bak-*')), [])
+            updated = {'mcpServers': {'fixture': {'command': 'new'}}}
+            install._write_config(path, updated)
+            backups = list(path.parent.glob('mcp-config.json.bak-*'))
+            self.assertEqual(len(backups), 1)
+            self.assertEqual(json.loads(backups[0].read_text()), original)
+            self.assertEqual(backups[0].stat().st_mode & 0o777, 0o600)
+
     def test_upgrade_private_backup_and_rollback_preserve_configuration(self):
         with tempfile.TemporaryDirectory() as temporary, patch('install.Path.home', return_value=Path(temporary)):
             home = Path(temporary)

@@ -254,12 +254,16 @@ def _backup(path):
 
 
 def _write_config(path, config):
+    content = json.dumps(config, indent=2) + "\n"
+    if not path.is_symlink() and path.exists() and path.read_bytes() == content.encode():
+        path.chmod(0o600)
+        return
     _backup(path)
     staging = path.with_name(path.name + ".tmp-" + secrets.token_hex(4))
     try:
         with staging.open("x") as stream:
             staging.chmod(0o600)
-            stream.write(json.dumps(config, indent=2) + "\n")
+            stream.write(content)
         os.replace(staging, path)
     finally:
         staging.unlink(missing_ok=True)
