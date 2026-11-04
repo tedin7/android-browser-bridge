@@ -290,12 +290,15 @@ Lato server MCP (nessuna modifica all'estensione o al companion).
 
 ## Build e test
 
+In una copia nuova o in un worktree, genera prima i pacchetti: alcuni test
+usano `android-browser-mcp.pyz`, che non è incluso in Git.
+
 ```sh
+python3 build.py
 python3 -m unittest -v test_bridge.py test_navigation.py test_attach.py test_setup.py test_page_wait.py test_goal_step.py
 node test_extension.js
 node test_multiserver.js
 node test_options.js
-python3 build.py
 python3 smoke_mcp.py
 python3 smoke_mcp.py --direct
 python3 smoke_mcp.py --tls
