@@ -23,6 +23,17 @@ class Client:
 
 
 class BrowserCliTests(unittest.TestCase):
+    def test_isolated_cli_discovers_operations_from_another_directory(self):
+        script = Path(__file__).resolve().with_name('browser_cli.py')
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run(
+                [sys.executable, '-I', str(script)], cwd=directory,
+                input=json.dumps({'operation': 'discover'}), text=True, capture_output=True,
+            )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('browserOperations', json.loads(result.stdout))
+        self.assertEqual(result.stderr, '')
+
     def test_reuses_tool_contract_and_closes(self):
         client = Client({'content': [{'type': 'text', 'text': '{"devices":[]}'}]})
         result = execute({'operation': 'devices'}, lambda: client)

@@ -15,6 +15,10 @@ from pathlib import Path
 import sys
 import tempfile
 
+if __name__ == '__main__' and sys.flags.isolated:
+    # Isolated mode omits the script directory, including our fixed modules.
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 from operation_registry import REGISTRY
 
 TOOL_NAMES = {'step':'browser_step','observe':'browser_observe','task':'browser_task','contract':'browser_contract','command': 'browser_command', 'status': 'browser_status',
