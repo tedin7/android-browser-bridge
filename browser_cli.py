@@ -26,10 +26,16 @@ TOOL_NAMES = {'step':'browser_step','observe':'browser_observe','task':'browser_
 MAX_REQUEST_BYTES = 1024 * 1024
 
 
+class BrowserOperationEnvelopeError(ValueError):
+    """A browser operation was used in place of the CLI operation."""
+
+
 def validate_request(request):
     if not isinstance(request, dict) or set(request) - {'operation', 'arguments'}:
         raise ValueError('Request requires operation and optional arguments')
     operation, arguments = request.get('operation'), request.get('arguments', {})
+    if isinstance(operation, str) and operation not in TOOL_NAMES and operation in REGISTRY['operations']:
+        raise BrowserOperationEnvelopeError()
     if operation not in {*TOOL_NAMES, 'discover', 'artifact'} or not isinstance(arguments, dict):
         raise ValueError('Unsupported operation or invalid arguments')
     if operation in ('discover', 'devices', 'metrics') and arguments:
@@ -126,6 +132,9 @@ def main():
             raise ValueError('Request too large')
         request = json.loads(raw)
         result = execute(request, artifact_directory=args.artifact_dir)
+    except BrowserOperationEnvelopeError as error:
+        result = {'isError': True, 'error': {'code': 'CLI_REQUEST_FAILED', 'errorType': type(error).__name__,
+                   'message': 'Browser operations require the command envelope, for example {"operation":"command","arguments":{"device":"DEVICE","op":"tabs"}}. Select an explicit device and set op to the desired browser operation.'}}
     except Exception as error:
         # Do not reflect untrusted request text, environment or child stderr.
         result = {'isError': True, 'error': {'code': 'CLI_REQUEST_FAILED', 'errorType': type(error).__name__,

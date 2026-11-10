@@ -23,6 +23,20 @@ class Client:
 
 
 class BrowserCliTests(unittest.TestCase):
+    def test_browser_operation_at_top_level_explains_command_envelope(self):
+        script = Path(__file__).resolve().with_name('browser_cli.py')
+        result = subprocess.run(
+            [sys.executable, str(script)], input='{"operation":"tabs"}',
+            text=True, capture_output=True,
+        )
+        self.assertEqual(result.returncode, 1)
+        error = json.loads(result.stdout)['error']
+        self.assertEqual(error['code'], 'CLI_REQUEST_FAILED')
+        self.assertIn('"operation":"command"', error['message'])
+        self.assertIn('"op":"tabs"', error['message'])
+        self.assertIn('device', error['message'])
+        self.assertEqual(result.stderr, '')
+
     def test_isolated_cli_discovers_operations_from_another_directory(self):
         script = Path(__file__).resolve().with_name('browser_cli.py')
         with tempfile.TemporaryDirectory() as directory:
