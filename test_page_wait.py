@@ -35,6 +35,32 @@ class SettleTest(unittest.TestCase):
         self.assertEqual(evidence['elements'], 9)
         self.assertAlmostEqual(clock.now, 4 * page_wait.SETTLE_INTERVAL)
 
+    def test_read_time_counts_toward_the_pause_between_reads(self):
+        clock, starts = Clock(), []
+        def dispatch(op, args):
+            starts.append(clock.now)
+            clock.now += 0.15  # a read over the network
+            return self.page(4)
+        evidence = page_wait.settle(dispatch, {'tabId': 1}, clock=clock, sleep=clock.sleep)
+        self.assertTrue(evidence['stable'])
+        self.assertEqual(len(starts), 3)
+        for earlier, later in zip(starts, starts[1:]):
+            self.assertAlmostEqual(later - earlier, page_wait.SETTLE_INTERVAL)
+        self.assertAlmostEqual(clock.now, 2 * page_wait.SETTLE_INTERVAL + 0.15)
+
+    def test_slow_reads_are_not_followed_by_a_pause(self):
+        clock, sleeps = Clock(), []
+        def dispatch(op, args):
+            clock.now += 0.5
+            return self.page(4)
+        def sleep(seconds):
+            sleeps.append(seconds)
+            clock.sleep(seconds)
+        evidence = page_wait.settle(dispatch, {'tabId': 1}, clock=clock, sleep=sleep)
+        self.assertTrue(evidence['stable'])
+        self.assertEqual(sleeps, [])
+        self.assertAlmostEqual(clock.now, 1.5)
+
     def test_gives_up_after_the_limit(self):
         counter = iter(range(1000))
         clock = Clock()

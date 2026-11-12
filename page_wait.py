@@ -51,6 +51,9 @@ def settle(dispatch, values, *, need_ready=False, limit=SETTLE_LIMIT,
     start = clock()
     previous, same, count, ready, failures = -1, 0, 0, not need_ready, 0
     while True:
+        # Reads start SETTLE_INTERVAL apart: the time a read spends on the
+        # network already counts toward the pause before the next read.
+        read_started = clock()
         try:
             page = read_page(dispatch, values)
         except Exception:
@@ -69,7 +72,9 @@ def settle(dispatch, values, *, need_ready=False, limit=SETTLE_LIMIT,
                 return {'stable': True, 'elements': count, 'waitedMs': int((clock() - start) * 1000)}
         if clock() - start >= limit:
             return {'stable': False, 'elements': count, 'waitedMs': int((clock() - start) * 1000)}
-        sleep(SETTLE_INTERVAL)
+        pause = SETTLE_INTERVAL - (clock() - read_started)
+        if pause > 0:
+            sleep(pause)
 
 
 def is_hidden_error(error):
