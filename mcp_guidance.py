@@ -7,7 +7,7 @@ from urllib.parse import urlsplit
 
 ANDROID_TAB_RECOVERY = [
     'If available, select the separately paired and authorized Android companion device; foreground Firefox and read its native controls.',
-    'Identify the intended Firefox tab from the observed native controls and click its fresh ref, subject to companion approvals; otherwise open Firefox and select that tab manually on Android.',
+    'Identify the intended Firefox tab from the observed native controls and click its fresh ref, subject to companion approvals; otherwise open Firefox and select the intended tab manually on Android.',
     'Return to the Firefox device and inspect read.viewport; retry only when it has nonzero dimensions and the intended page is visible.',
 ]
 
