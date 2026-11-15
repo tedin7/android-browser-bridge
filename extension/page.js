@@ -222,7 +222,7 @@
   function viewportBounds() {
     const visual = window.visualViewport;
     const width = visual?.width ?? innerWidth, height = visual?.height ?? innerHeight;
-    if (!(width > 0 && height > 0 && document.documentElement.getBoundingClientRect().width > 0)) fail("VIEWPORT_UNAVAILABLE", "This page has no rendered viewport; bring Firefox and this tab to the foreground, then retry");
+    if (!(width > 0 && height > 0 && document.documentElement.getBoundingClientRect().width > 0)) fail("VIEWPORT_UNAVAILABLE", "This page has no rendered viewport; open Firefox and select this tab in its UI, then check read.viewport before retrying");
     return {left: visual?.offsetLeft || 0, top: visual?.offsetTop || 0, right: (visual?.offsetLeft || 0) + width, bottom: (visual?.offsetTop || 0) + height};
   }
   function renderFrame() {

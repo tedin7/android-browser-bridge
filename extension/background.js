@@ -273,7 +273,7 @@ async function execute(command, current) {
         result.windowFocusRequested = true; result.windowFocused = window?.focused ?? null;
       } catch (error) { result.windowFocusError = error.message; }
     }
-    if (!result.windowFocusRequested) result.nextStep = "If Firefox remains in the background on Android, open Firefox on the device; extensions cannot guarantee Android app foregrounding.";
+    result.nextStep = "On Android, open Firefox and select the intended tab in its UI if needed; check read.viewport is nonzero before visual actions. Tab activation only confirms the Firefox extension state, not that the tab is rendered.";
     return result;
   }
   if (op === "viewport") return desktopViewport(tab, args);

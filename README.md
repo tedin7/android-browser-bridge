@@ -326,8 +326,11 @@ Gli errori MCP restituiscono `code`, `operation`, `actionMayHaveOccurred`,
 `browser_status` con il `commandId` restituito prima di ripetere un’azione.
 I batch riportano anche l’indice e i risultati già completati.
 
-`foreground` seleziona la scheda e tenta il focus tramite Firefox. Su Android
-un’app sospesa dal sistema potrebbe richiedere l’apertura manuale. Quando il MCP
+`foreground` attiva la scheda nel modello dell’estensione e tenta il focus tramite Firefox.
+Su Android questo non garantisce che la scheda sia disegnata. Se `read.viewport`
+è 0×0, apri Firefox e seleziona la scheda desiderata nella sua interfaccia,
+poi verifica che il viewport sia diverso da zero prima di riprovare il clic.
+Quando il MCP
 esegue sullo stesso Android tramite Termux, puoi configurare nel suo ambiente:
 
 ```json

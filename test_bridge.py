@@ -138,6 +138,12 @@ class GuidanceTests(unittest.TestCase):
     def call(self,op='click'):
         return handle({'method':'tools/call','params':{'name':'browser_command','arguments':{'device':'tablet','op':op,'args':{'tabId':7}}}})
 
+    def test_unrendered_tab_remedy_identifies_android_tab_selection(self):
+        error = failure(RuntimeError('VIEWPORT_UNAVAILABLE: no rendered viewport'), 'tablet', 'click')
+        self.assertFalse(error['actionMayHaveOccurred'])
+        self.assertIn('select the intended tab', ' '.join(error['nextSteps']))
+        self.assertIn('read.viewport', ' '.join(error['nextSteps']))
+
     def test_precondition_errors_give_recovery_without_uncertain_execution(self):
         with patch.dict(os.environ,{'BROWSER_BRIDGE_TOKEN':'test'},clear=False), patch('mcp_server.run_command',side_effect=RuntimeError('COVERED: target has overlay')) as command:
             result=self.call()
