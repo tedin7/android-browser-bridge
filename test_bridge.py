@@ -196,6 +196,25 @@ class GuidanceTests(unittest.TestCase):
             with self.assertRaises(ValueError):local_android_foreground('tablet','http://localhost:8766')
             launch.assert_not_called()
 
+    def test_foreground_without_local_helper_explains_native_tab_selection(self):
+        with patch.dict(os.environ, {'BROWSER_BRIDGE_TOKEN': 'test'}, clear=True), patch('mcp_server.run_command', return_value={'tabActivated': True}):
+            result = self.call('foreground')
+        native = json.loads(result['content'][0]['text'])['localAndroid']
+        self.assertFalse(native['available'])
+        guidance = ' '.join(native['nextSteps']).lower()
+        for word in ('companion', 'device', 'read', 'click', 'ref', 'viewport', 'manually'):
+            self.assertIn(word, guidance)
+        with patch.dict(os.environ, {'BROWSER_BRIDGE_ANDROID_PACKAGE': 'org.mozilla.fenix', 'BROWSER_BRIDGE_ANDROID_DEVICE': 'tablet'}, clear=True), patch('mcp_guidance.Path.is_file', return_value=False):
+            missing = local_android_foreground('tablet', 'http://localhost:8766')
+            other = local_android_foreground('other', 'http://localhost:8766')
+        for response in (missing, other):
+            self.assertFalse(response['available'])
+            self.assertIn('companion', ' '.join(response['nextSteps']).lower())
+        for code in ('VIEWPORT_UNAVAILABLE', 'TAB_NOT_VISIBLE'):
+            guidance = ' '.join(failure(RuntimeError(code + ': suspended'))['nextSteps']).lower()
+            self.assertIn('companion', guidance)
+            self.assertIn('viewport', guidance)
+
     def test_android_helper_reports_missing_launcher_and_launcher_failure(self):
         env={'BROWSER_BRIDGE_ANDROID_PACKAGE':'org.mozilla.fenix','BROWSER_BRIDGE_ANDROID_DEVICE':'tablet'}
         with patch.dict(os.environ,env,clear=False),patch('mcp_guidance.Path.is_file',return_value=False),patch('mcp_guidance.subprocess.run') as launch:
