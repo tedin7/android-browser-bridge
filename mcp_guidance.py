@@ -5,6 +5,12 @@ import subprocess
 from pathlib import Path
 from urllib.parse import urlsplit
 
+ANDROID_TAB_RECOVERY = [
+    'If available, select the separately paired and authorized Android companion device; foreground Firefox and read its native controls.',
+    'Identify the intended Firefox tab from the observed native controls and click its fresh ref, subject to companion approvals; otherwise open Firefox and select that tab manually on Android.',
+    'Return to the Firefox device and inspect read.viewport; retry only when it has nonzero dimensions and the intended page is visible.',
+]
+
 REMEDIES = {
     'HOST_PERMISSION_REQUIRED': ['Firefox restricts extension access to this page or host permission is missing. A browser-generated connection-error page can produce the same error; check site reachability first.', 'For browser settings, installer dialogs or protected Mozilla pages, complete the step in Firefox manually; do not retry page injection or disable browser protections.', 'For an ordinary site, check the extension site-access permission before retrying.'],
     'ACTION_UNCERTAIN': ['Use browser_status with actionId to reconcile this action before considering another mutation.', 'If identity or result retention expired, inspect application state; do not assume the action failed or repeat it automatically.'],
@@ -18,9 +24,9 @@ REMEDIES = {
     'INVALID_TARGET': ['Inspect the target and choose an element compatible with this operation.'],
     'UNSUPPORTED_OPERATION': ['Use viewport only on Firefox desktop; Android viewport follows the device screen.', 'Computed inspect layout requires extension 0.3.1; use basic geometry or update the extension before claiming CSS details.', 'Check capabilities only for the unknown feature.'],
     'CANCELED': ['The page canceled the input event; inspect its validation or required interaction sequence before retrying.'],
-    'VIEWPORT_UNAVAILABLE': ['Call foreground for this device and tab.', 'On Android, open Firefox and select the intended tab in its UI, even if the extension reports it active. Inspect read.viewport and retry only when its dimensions are nonzero.'],
+    'VIEWPORT_UNAVAILABLE': ['Call foreground for this device and tab.'] + ANDROID_TAB_RECOVERY,
     'VIEWPORT_MEASUREMENT_UNAVAILABLE': ['The window may already have resized. Inspect read.viewport and use measured dimensions before repeating viewport.', 'Foreground the desktop tab if rendering is suspended.'],
-    'TAB_NOT_VISIBLE': ['Call foreground with this tabId.', 'On Android, open Firefox and select the intended tab in its UI; retry the screenshot after read.viewport is nonzero.'],
+    'TAB_NOT_VISIBLE': ['Call foreground with this tabId.'] + ANDROID_TAB_RECOVERY,
     'NOT_FOUND': ['Use locate or read to discover the current controls.', 'Use wait if the element is still loading.'],
     'NOT_UNIQUE': ['Inspect locate candidates and narrow role/name/label or select one returned ref.'],
     'STALE_REFERENCE': ['Read or locate the current document and obtain a new ref.'],
@@ -64,14 +70,14 @@ def failure(error, device=None, operation=None):
 def local_android_foreground(device, origin):
     package=os.environ.get('BROWSER_BRIDGE_ANDROID_PACKAGE')
     bound_device=os.environ.get('BROWSER_BRIDGE_ANDROID_DEVICE')
-    if not package or device != bound_device:return {'available':False,'reason':'No local Android foreground helper configured for this device.'}
+    if not package or device != bound_device:return {'available':False,'reason':'No local Android foreground helper configured for this device.','nextSteps':ANDROID_TAB_RECOVERY}
     if package not in {'org.mozilla.fenix','org.mozilla.firefox','org.mozilla.firefox_beta'}:
         raise ValueError('Unsupported local Firefox package')
     parts=urlsplit(origin)
     if parts.scheme not in {'http','https'} or parts.hostname not in {'127.0.0.1','localhost','::1'} or parts.username or parts.password:
         raise ValueError('Local Android helper requires a loopback broker URL')
     executable=Path('/data/data/com.termux/files/usr/bin/am')
-    if not executable.is_file():return {'available':False,'reason':'The Linux host has no local Android activity launcher.'}
+    if not executable.is_file():return {'available':False,'reason':'The Linux host has no local Android activity launcher.','nextSteps':ANDROID_TAB_RECOVERY}
     response=subprocess.run([str(executable),'start','--user','0','--activity-reorder-to-front','-n',package+'/'+package+'.App'],capture_output=True,text=True,timeout=10)
     combined=response.stdout+response.stderr
     if response.returncode or 'Error:' in combined:raise RuntimeError('ANDROID_FOREGROUND_FAILED: Android did not accept the Firefox launch; open Firefox manually.')

@@ -343,6 +343,13 @@ Usa il nome del dispositivo abbinato al posto di `tablet`; `org.mozilla.fenix`
 L’helper usa il launcher locale Termux per aprire Firefox, soltanto per quel
 dispositivo e con un broker loopback. Non serve ADB. Su Linux remoto questo
 helper non è disponibile: nessun comando shell viene inviato ad Android.
+Se il viewport resta a zero, apri Firefox e seleziona la scheda desiderata
+sul dispositivo. Se è disponibile un companion Android separatamente abbinato
+e autorizzato, seleziona il suo dispositivo, apri Firefox, leggi i controlli
+nativi e tocca il riferimento aggiornato della scheda corretta, rispettando
+le approvazioni richieste. Torna al dispositivo Firefox e verifica pagina e
+`read.viewport` non nullo prima di riprovare. L’attivazione della scheda nel
+bridge non garantisce che Android la stia mostrando.
 Un errore certo prima dell’azione può attivare un singolo recupero locale;
 un’azione con esito incerto viene segnalata senza ripetizione automatica.
 Gli screenshot e i clic visuali richiedono un viewport renderizzato; `read.viewport`
