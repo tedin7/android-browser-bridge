@@ -24,11 +24,23 @@ model. Do not stringify image base64 into text.
 '''
 
 
+CONFIG_BACKUPS_KEPT=10
+
+
+def prune_config_backups(path,keep=CONFIG_BACKUPS_KEPT):
+    """Keep only the newest `keep` private copies of this one file (UTC stamp in the name)."""
+    pattern=re.compile(re.escape(path.name)+r'\.bak-[0-9]{8}T[0-9]{6}-[a-f0-9]{8}')
+    found=sorted(item for item in path.parent.iterdir() if pattern.fullmatch(item.name) and item.is_file() and not item.is_symlink())
+    for old in found[:max(0,len(found)-keep)]:
+        old.unlink()
+
+
 def _backup(path):
     stamp=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')
     destination=path.with_name(path.name+'.bak-'+stamp+'-'+secrets.token_hex(4))
     shutil.copy2(path,destination)
     destination.chmod(0o600)
+    prune_config_backups(path)
 
 
 def _replace(path,text):

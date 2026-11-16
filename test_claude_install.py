@@ -32,6 +32,21 @@ class ClaudeInstallTests(unittest.TestCase):
             self.assertEqual(install.register_claude(server), name)
             self.assertEqual(len(list(path.parent.glob('.claude.json.bak-*'))), 1)
 
+    def test_config_backups_are_pruned_to_the_last_ten(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/'mcp-config.json'
+            path.write_text('now')
+            old = [path.with_name('mcp-config.json.bak-202610%02dT120000-'%day+'a'*8) for day in range(1, 16)]
+            for item in old: item.write_text('old')
+            other = path.with_name('other.json.bak-20261001T120000-'+'a'*8); other.write_text('x')
+            install._backup(path)
+            left = sorted(path.parent.glob('mcp-config.json.bak-*'))
+            self.assertEqual(len(left), 10)
+            self.assertFalse(old[0].exists()); self.assertTrue(old[-1].exists())
+            self.assertTrue(other.exists())
+            agent_integration._backup(path)
+            self.assertEqual(len(list(path.parent.glob('mcp-config.json.bak-*'))), 10)
+
     def test_own_env_preserved_credentials_migrated_and_invalid_json_untouched(self):
         with tempfile.TemporaryDirectory() as directory, patch('install.Path.home', return_value=Path(directory)):
             path = Path(directory)/'.claude.json'

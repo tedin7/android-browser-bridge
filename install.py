@@ -19,6 +19,7 @@ import time
 from urllib.parse import urlsplit
 from pathlib import Path
 from zipfile import ZipFile, BadZipFile
+from agent_integration import prune_config_backups
 from launcher import validate_origin, validate_token_path
 from connection import connection_path, load_connection, save_connection
 
@@ -251,6 +252,7 @@ def _backup(path):
     backup = path.with_name(path.name + ".bak-" + stamp + "-" + secrets.token_hex(4))
     shutil.copy2(path, backup)
     backup.chmod(0o600)
+    prune_config_backups(path)
 
 
 def _write_config(path, config):
