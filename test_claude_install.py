@@ -32,6 +32,17 @@ class ClaudeInstallTests(unittest.TestCase):
             self.assertEqual(install.register_claude(server), name)
             self.assertEqual(len(list(path.parent.glob('.claude.json.bak-*'))), 1)
 
+    def test_renamed_package_row_behind_wrapper_is_refused_untouched(self):
+        with tempfile.TemporaryDirectory() as directory, patch('install.Path.home', return_value=Path(directory)):
+            path = Path(directory)/'.claude.json'
+            row = {'type': 'stdio', 'command': 'python3', 'args': ['/opt/mcp_pigro.py', '/opt/android-browser-mcp-1.0.5-t6528.pyz']}
+            path.write_text(json.dumps({'mcpServers': {'android-browser': row}}))
+            before = path.read_text()
+            with self.assertRaisesRegex(RuntimeError, 'renamed package'):
+                install.register_claude({'command': 'python3', 'args': [str(ROOT/'mcp_server.py')]})
+            self.assertEqual(path.read_text(), before)
+            self.assertEqual(list(path.parent.glob('.claude.json.bak-*')), [])
+
     def test_config_backups_are_pruned_to_the_last_ten(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory)/'mcp-config.json'

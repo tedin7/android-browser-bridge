@@ -60,6 +60,20 @@ def _claude_servers():
     return list(_read_claude_config()[1].get("mcpServers", {}).values())
 
 
+def _refuse_renamed_package_row(servers):
+    """Una riga che usa un pacchetto rinominato (android-browser-mcp-X.pyz), spesso dietro
+    un wrapper, non e riconosciuta come ponte: non aggiungere una seconda riga accanto."""
+    record = servers.get("android-browser")
+    if not isinstance(record, dict) or is_genuine_bridge(record):
+        return
+    transport = _transport(record)
+    values = [transport.get("command"), *(transport.get("args") or [])]
+    if any(isinstance(v, str) and re.fullmatch(r"android-browser-mcp-.+\.pyz", Path(v).name) for v in values):
+        raise RuntimeError("The 'android-browser' row runs a renamed package (android-browser-mcp-*.pyz), "
+                           "possibly behind a wrapper; nothing was changed. Replace that .pyz file in place "
+                           "instead (see docs/CLAUDE_CODE.md, 'Macchine con un wrapper nella riga MCP').")
+
+
 def register_claude(server_config):
     """Merge user-scope stdio registration, retrying observed concurrent edits."""
     path = _claude_config_path()
@@ -67,6 +81,7 @@ def register_claude(server_config):
     for _ in range(8):
         raw, config = _read_claude_config()
         servers = config.get("mcpServers", {})
+        _refuse_renamed_package_row(servers)
         name = _server_name(servers)
         previous = servers.get(name, {})
         value = {**previous, **server_config, "type": "stdio"}

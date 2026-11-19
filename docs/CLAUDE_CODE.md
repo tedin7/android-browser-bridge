@@ -31,8 +31,8 @@ solo quando serve), `install.py --claude` va evitato:
 
 - il programma di installazione riconosce il ponte solo se un argomento è un file
   chiamato `android-browser-mcp.pyz`. Con un pacchetto rinominato (per esempio
-  `android-browser-mcp-1.0.5-t6528.pyz`) crea una seconda riga `android-browser-2`
-  accanto al wrapper; con il nome standard fonde i campi e **sostituisce `command` e
+  `android-browser-mcp-1.0.5-t6528.pyz`) `install.py --claude` ora si rifiuta con un
+  errore senza toccare nulla (prima creava una seconda riga `android-browser-2`); con il nome standard fonde i campi e **sostituisce `command` e
   `args`**, cioè toglie il wrapper;
 - riscrive anche il blocco gestito in ~/.claude/CLAUDE.md.
 
